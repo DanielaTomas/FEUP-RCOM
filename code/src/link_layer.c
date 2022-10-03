@@ -55,54 +55,6 @@ int llopen(LinkLayer connectionParameters) {
     return 1;
 }
 
-/*
-int llopen(LinkLayer connectionParameters)
-{
-    int fd = open(connectionParameters.serialPort, O_RDWR | O_NOCTTY);
-
-    if (fd < 0) {
-        perror(connectionParameters.serialPort);
-        return -1;
-    }
-
-    struct termios oldter;
-    struct termios newter;
-
-    if (tcgetattr(fd, &oldter) == -1) {
-        perror("Can't fetch port settings.\n");
-        return -1;
-    }
-
-    memset(&newter, 0, sizeof(newter));
-
-    newter.c_cflag = connectionParameters.baudRate | CS8 | CLOCAL | CREAD;
-    newter.c_iflag = IGNPAR;
-    newter.c_oflag = 0;
-
-    newter.c_lflag = 0;
-    newter.c_cc[VTIME] = 0;
-    newter.c_cc[VMIN] = 1;
-
-    tcflush(fd, TCIOFLUSH);
-
-    if (tcsetattr(fd, TCSANOW, &newter) == -1) {
-        perror("Error setting termios struct.\n");
-        exit(-1);
-    }
-
-    printf("New termios structure set\n");
-
-    unsigned char sender_block[5];
-    unsigned char receiver_block[5];
-    
-    sender_block_create(sender_block);
-    receiver_block_create(receiver_block);
-    
-    write(fd, sender_block, 5);ll
-
-    return 1;
-}
-*/
 ////////////////////////////////////////////////
 // LLWRITE
 ////////////////////////////////////////////////
