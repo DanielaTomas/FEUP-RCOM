@@ -1,8 +1,13 @@
 // Link layer protocol implementation
-
+#include <fcntl.h>
 #include "link_layer.h"
 #include <stdio.h>
 #include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <signal.h>
+#include <stdbool.h>
 #include <termios.h>
 #include <string.h>
 
@@ -17,11 +22,11 @@
 #define UA 0x07
 #define BUFFER_SIZE 255
 #define OK 0x00
+
 ////////////////////////////////////////////////
 // LLOPEN
 ////////////////////////////////////////////////
-
-void stateHandler(LinkLayer connectionParameters, unsigned char byte, RState* state) {
+void stateHandler(LinkLayer connectionParameters, unsigned char byte, RState* state, int frame[], int* frame_size) {
     switch (*state) {
         case START:
             if (byte == F) 
@@ -74,27 +79,43 @@ void stateHandler(LinkLayer connectionParameters, unsigned char byte, RState* st
 
 int llopenR(LinkLayer connectionParameters, int fd) {
     RState state = START;
+
+    printf("Loop for input \n");
+    unsigned char byte;
+    unsigned char frame[5];
+    int frame_size = 0;
+
     while(state != STOP) {
-        unsigned char byte;
         
-        printf("-------------------------------------------\n");
-        printf("Role before read: %u\n", connectionParameters.role);
+        //printf("Role before read: %u\n", connectionParameters.role);
         
         if (read(fd, &byte, 1) == -1){
             //printf(connectionParameters.role);
             perror("Error reading a byte.\n");
             exit(-1);
         }
-
-        printf("Byte: %x\n", byte);
-        
-        unsigned char ua[5] = {F, A_T, UA, A_T ^ UA, F};
-        stateHandler(connectionParameters, byte, &state);
-
+        frame_size++;
+        //printf("Frame_size: %d\n",frame_size);
+        //printf("Byte: %x\n", byte);
+    
+        stateHandler(connectionParameters, byte, &state, frame, &frame_size);
     }
+    
+    unsigned char ua[5] = {F, A_T, UA, A_T ^ UA, F};
+
+    if(write(fd, ua, 5) == -1){
+        perror("Error writting.\n");
+        exit(-1);
+    }
+    return 1; 
+}
+
+llopenT(LinkLayer connectionParameters, int fd) {
+    
 }
 
 int llopen(LinkLayer connectionParameters) {
+    
     int fd = open(connectionParameters.serialPort, O_RDWR | O_NOCTTY);
     struct termios oldtio, newtio;
 
@@ -139,6 +160,7 @@ int llopen(LinkLayer connectionParameters) {
         default:
             break;
     }
+
     return 1;
 }
 
