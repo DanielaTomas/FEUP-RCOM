@@ -44,4 +44,17 @@ int llread(unsigned char *packet);
 // Return "1" on success or "-1" on error.
 int llclose(int showStatistics);
 
+typedef enum
+{
+    START,
+    FLAG_RCV,
+    A_RCV,
+    C_RCV,
+    BCC_OK,
+    STOP
+} RState;
+
+int llopenR(LinkLayer connectionParameters, int fd);
+int llopenT(LinkLayer connectionParameters, int fd);
+
 #endif // _LINK_LAYER_H_

@@ -18,6 +18,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
   }
   else {
       perror(role);
+      exit(-1);
   }
   
   connectionParameters.baudRate = baudRate;
