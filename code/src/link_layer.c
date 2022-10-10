@@ -1,6 +1,7 @@
 // Link layer protocol implementation
 #include <fcntl.h>
 #include "link_layer.h"
+#include "alarm.h"
 #include <stdio.h>
 #include <fcntl.h>
 #include <sys/types.h>
@@ -110,8 +111,25 @@ int llopenR(LinkLayer connectionParameters, int fd) {
     return 1; 
 }
 
-llopenT(LinkLayer connectionParameters, int fd) {
+int llopenT(LinkLayer connectionParameters, int fd) {
+    RState state = START;
+    unsigned char byte;
+    unsigned char frame[5];
+    int frame_size = 0;
     
+    if (read(fd, &byte, 1) == -1){
+            //printf(connectionParameters.role);
+            perror("Error reading a byte.\n");
+            exit(-1);
+    }
+
+    (void) signal(SIGALRM, alarmHandler);
+    unsigned char SET[5] = {F, A_T, SETUP, A_T ^ SETUP, F};
+    alarm(connectionParameters.timeout);
+    
+    stateHandler(connectionParameters, byte, &state, frame, &frame_size);
+
+    return 1;
 }
 
 int llopen(LinkLayer connectionParameters) {
