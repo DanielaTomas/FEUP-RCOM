@@ -4,6 +4,7 @@
 #include "alarm.h"
 #include <stdio.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -30,8 +31,10 @@
 void stateHandler(LinkLayer connectionParameters, unsigned char byte, RState* state, int frame[], int* frame_size) {
     switch (*state) {
         case START:
-            if (byte == F) 
+            if (byte == F) {
                 *state = FLAG_RCV;
+                frame[*frame_size-1] = byte;
+            }
             break;
 
         case FLAG_RCV:
@@ -80,8 +83,7 @@ void stateHandler(LinkLayer connectionParameters, unsigned char byte, RState* st
 
 int llopenR(LinkLayer connectionParameters, int fd) {
     RState state = START;
-
-    printf("Loop for input \n");
+    //printf("llopenR\n");
     unsigned char byte;
     unsigned char frame[5];
     int frame_size = 0;
@@ -90,11 +92,12 @@ int llopenR(LinkLayer connectionParameters, int fd) {
         
         //printf("Role before read: %u\n", connectionParameters.role);
         
-        if (read(fd, &byte, 1) == -1){
+        if (read(fd, &byte, 5) == -1){
             //printf(connectionParameters.role);
-            perror("Error reading a byte.\n");
+            perror("Error reading a byte (llopenR)\n");
             exit(-1);
         }
+
         frame_size++;
         //printf("Frame_size: %d\n",frame_size);
         //printf("Byte: %x\n", byte);
@@ -105,32 +108,50 @@ int llopenR(LinkLayer connectionParameters, int fd) {
     unsigned char ua[5] = {F, A_T, UA, A_T ^ UA, F};
 
     if(write(fd, ua, 5) == -1){
-        perror("Error writting.\n");
+        perror("Error writting (llopenR)\n");
         exit(-1);
     }
+    
     return 1; 
 }
 
 int llopenT(LinkLayer connectionParameters, int fd) {
+    //printf("Entered Tx \n");
     RState state = START;
+    
+    unsigned char set[5] = {F, A_T, SETUP, A_T ^ SETUP, F};
     unsigned char byte;
     unsigned char frame[5];
     int frame_size = 0;
     
-    if (read(fd, &byte, 1) == -1){
-            //printf(connectionParameters.role);
-            perror("Error reading a byte.\n");
+    (void)signal(SIGALRM, alarmHandler);
+    while(getAlarmCount() < connectionParameters.nRetransmissions) {
+        
+        if(write(fd, set, 5) == -1){
+            perror("Error writting (llopenT)\n");
             exit(-1);
+        }
+
+        alarm(connectionParameters.timeout);
+
+        while(state != STOP) {
+            printf("Estoiro\n");
+            if (read(fd, &byte, 1) == -1){
+                perror("Error reading a byte (llopenT)\n");
+                exit(-1);
+            }
+            frame_size++;
+            stateHandler(connectionParameters, byte, &state, frame, &frame_size);
+        }
+    
     }
 
-    (void) signal(SIGALRM, alarmHandler);
-    unsigned char SET[5] = {F, A_T, SETUP, A_T ^ SETUP, F};
-    alarm(connectionParameters.timeout);
-    
-    stateHandler(connectionParameters, byte, &state, frame, &frame_size);
+    // TODO trama I (variar FER)
 
     return 1;
 }
+
+//TODO DISC
 
 int llopen(LinkLayer connectionParameters) {
     
@@ -168,10 +189,12 @@ int llopen(LinkLayer connectionParameters) {
 
     switch(connectionParameters.role) {
         case LlRx:
+            printf("LlRx\n");
             llopenR(connectionParameters,fd);     
             break;
             
-        case LlTx: 
+        case LlTx:
+            printf("LlTx\n");
             llopenT(connectionParameters,fd);
             break;
             
@@ -185,11 +208,20 @@ int llopen(LinkLayer connectionParameters) {
 ////////////////////////////////////////////////
 // LLWRITE
 ////////////////////////////////////////////////
-int llwrite(const unsigned char *buf, int bufSize)
-{
-    // TODO
+int llwrite(int fd, const unsigned char *buf, int bufSize){
 
-    return 0;
+    unsigned char* frame_msg = new_frame(buf,bufSize);
+    unsigned char res; 
+    unsigned char itr;
+
+    if(bufSize < 0) {
+        perror(bufSize);
+        exit(-1);
+    }
+
+    
+
+    return 1;
 }
 
 ////////////////////////////////////////////////
@@ -207,7 +239,6 @@ int llread(unsigned char *packet)
 ////////////////////////////////////////////////
 int llclose(int showStatistics)
 {
-    // TODO
-
+    // TODO medir tempos de envio obtendo S = R/C??
     return 1;
 }

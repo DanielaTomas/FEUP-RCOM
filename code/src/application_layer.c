@@ -1,5 +1,6 @@
 // Application layer protocol implementation
-
+#include <stdlib.h>
+#include <stdio.h>
 #include "application_layer.h"
 #include "link_layer.h"
 #include "string.h"

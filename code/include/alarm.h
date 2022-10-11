@@ -3,13 +3,9 @@
 #ifndef _ALARM_H_
 #define _ALARM_H_
 
-typedef struct {
-  int counter;
-  int enabled;
-} Alarm;
-
-void alarmConstructor();
-void alarmHandler();
+void alarmHandler(int signal);
 int setAlarm(int timeout);
+int getAlarmCount();
+int isAlarmEnabled();
 
 #endif // _ALARM_H_

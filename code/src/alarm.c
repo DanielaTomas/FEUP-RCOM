@@ -4,27 +4,23 @@
 #include "../include/link_layer.h"
 #include "../include/alarm.h"
 
-Alarm alarm_;
+int alarm_enabled = FALSE;
+int alarm_count = 0;
 
-void alarmConstructor() {
-    alarm_.counter = 0;
-    alarm_.enabled = FALSE;
-}
+void alarmHandler(int signal) {
+    alarm_enabled = FALSE;
+    alarm_count++;
 
-void alarmHandler() {
-    alarmConstructor();
-    alarm_.counter++;
-
-    printf("Alarm Counter: %d\n", alarm_.counter);
+    printf("Alarm Counter: %d\n", alarm_count);
 }
 
 int setAlarm(int timeout) {
     (void)signal(SIGALRM, alarmHandler);
 
-    while (alarm_.counter <= timeout) {
-        if (alarm_.enabled == FALSE) {
+    while (alarm_count <= timeout) {
+        if (alarm_enabled == FALSE) {
             alarm(timeout);
-            alarm_.enabled = TRUE;
+            alarm_enabled = TRUE;
         }
     }
 
@@ -33,4 +29,12 @@ int setAlarm(int timeout) {
     printf("------------------------\n");
 
     return 0;
+}
+
+int getAlarmCount() {
+    return alarm_count;
+}
+
+int isAlarmEnabled() {
+    return alarm_enabled;
 }
