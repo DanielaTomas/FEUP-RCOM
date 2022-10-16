@@ -25,15 +25,26 @@
 #define BUFFER_SIZE 255
 #define OK 0x00
 
+#define ESC 0x7D
+#define ESC_F 0x5E
+#define ESC_E 0x5D
+
+//Control Values 
+#define CV0 0x00
+#define CV1 0x40
+#define CV2 0x05
+#define CV3 0x85
+#define CV4 0x01
+#define CV5 0x81
+
 ////////////////////////////////////////////////
 // LLOPEN
 ////////////////////////////////////////////////
-void stateHandler(LinkLayer connectionParameters, unsigned char byte, RState* state, int frame[], int* frame_size) {
+void stateHandler(LinkLayer connectionParameters, unsigned char byte, RState* state) {
     switch (*state) {
         case START:
             if (byte == F) {
                 *state = FLAG_RCV;
-                frame[*frame_size-1] = byte;
             }
             break;
 
@@ -102,7 +113,7 @@ int llopenR(LinkLayer connectionParameters, int fd) {
         //printf("Frame_size: %d\n",frame_size);
         //printf("Byte: %x\n", byte);
     
-        stateHandler(connectionParameters, byte, &state, frame, &frame_size);
+        stateHandler(connectionParameters, byte, &state);
     }
     
     unsigned char ua[5] = {F, A_T, UA, A_T ^ UA, F};
@@ -121,8 +132,6 @@ int llopenT(LinkLayer connectionParameters, int fd) {
     
     unsigned char set[5] = {F, A_T, SETUP, A_T ^ SETUP, F};
     unsigned char byte;
-    unsigned char frame[5];
-    int frame_size = 0;
     
     (void)signal(SIGALRM, alarmHandler);
     while(getAlarmCount() < connectionParameters.nRetransmissions) {
@@ -140,18 +149,13 @@ int llopenT(LinkLayer connectionParameters, int fd) {
                 perror("Error reading a byte (llopenT)\n");
                 exit(-1);
             }
-            frame_size++;
-            stateHandler(connectionParameters, byte, &state, frame, &frame_size);
+            stateHandler(connectionParameters, byte, &state);
         }
     
     }
 
-    // TODO trama I (variar FER)
-
     return 1;
 }
-
-//TODO DISC
 
 int llopen(LinkLayer connectionParameters) {
     
@@ -210,17 +214,119 @@ int llopen(LinkLayer connectionParameters) {
 ////////////////////////////////////////////////
 int llwrite(int fd, const unsigned char *buf, int bufSize){
 
-    unsigned char* frame_msg = new_frame(buf,bufSize);
-    unsigned char res; 
-    unsigned char itr;
-
     if(bufSize < 0) {
         perror(bufSize);
         exit(-1);
     }
 
-    
+    unsigned char bcc2 = buf[0];
 
+    for (int i = 1; i < bufSize; i++)
+        bcc2 ^= buf[i];
+
+    unsigned char *bcc2_stuffed = (unsigned char*)malloc(sizeof(unsigned char));
+    int bcc2_size = 1;
+    int frame_size = bufSize + 6;
+    int rejected = FALSE;
+
+    //Stuffing BCC2
+    if (bcc2 == F) {
+        bcc2_stuffed = (unsigned char*)malloc(2*sizeof(unsigned char*));
+        bcc2_stuffed[0] = ESC;
+        bcc2_stuffed[1] = ESC_F;
+        bcc2_size++;
+    }
+    else if (bcc2 == ESC) {
+        bcc2_stuffed = (unsigned char*)malloc(2*sizeof(unsigned char*));
+        bcc2_stuffed[0] = ESC;
+        bcc2_stuffed[1] = ESC_E;
+        bcc2_size++;
+    }
+
+    unsigned char* frame_msg = (unsigned char*)malloc((bufSize+6)*sizeof(unsigned char));
+    frame_msg[0] = F;
+    frame_msg[1] = A_T;
+
+   /* if (frame == 0) {
+        frame_msg[2] = CV0;
+    }
+    else {
+        frame_msg[2] = CV1;
+    }
+    frame_msg[3] = (frame_msg[1]^frame_msg[2]);
+
+  int j = 4;
+  for (int i = 0; i < size; i++)
+  {
+    if (buf[i] == FLAG)
+    {
+      frame_msg = (unsigned char *)realloc(frame_msg, ++frame_size);
+      frame_msg[j] = ESC;
+      frame_msg[j + 1] = ESC_F;
+      j = j + 2;
+    }
+    else
+    {
+      if (buf[i] == ESC)
+      {
+        frame_msg = (unsigned char *)realloc(frame_msg, ++frame_size);
+        frame_msg[j] = ESC;
+        frame_msg[j + 1] = ESC_E;
+        j = j + 2;
+      }
+      else
+      {
+        frame_msg[j] = buf[i];
+        j++;
+      }
+    }
+  }
+
+  if (bcc2_size == 1)
+    frame_msg[j] = BCC2;
+  else
+  {
+    frame_msg = (unsigned char *)realloc(frame_msg, ++frame_size);
+    frame_msg[j] = BCC2Stuffed[0];
+    frame_msg[j + 1] = BCC2Stuffed[1];
+    j++;
+  }
+  frame_msg[j + 1] = FLAG;
+
+  //mandar mensagem
+  do
+  {
+
+    unsigned char *copia;
+    copia = messUpBCC1(frame_msg, frame_size); //altera bcc1
+    copia = messUpBCC2(copia, frame_size);         //altera bcc2
+    write(fd, copia, frame_size);
+
+    flagAlarm = FALSE;
+    alarm(TIMEOUT);
+    unsigned char C = readControlMessageC(fd);
+    if ((C == CRR1 && frame == 0) || (C == CRR0 && frame == 1))
+    {
+      printf("Recebeu rr %x, frame = %d\n", C, frame);
+      rejected = FALSE;
+      sumAlarms = 0;
+      frame ^= 1;
+      alarm(0);
+    }
+    else
+    {
+      if (C == CREJ1 || C == CREJ0)
+      {
+        rejected = TRUE;
+        printf("Recebeu rej %x, frame=%d\n", C, frame);
+        alarm(0);
+      }
+    }
+  } while ((flagAlarm && sumAlarms < NUMMAX) || rejected);
+  if (sumAlarms >= NUMMAX)
+    return FALSE;
+  else
+    return TRUE; */
     return 1;
 }
 
