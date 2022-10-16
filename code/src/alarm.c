@@ -4,8 +4,7 @@
 #include "../include/link_layer.h"
 #include "../include/alarm.h"
 
-int alarm_enabled = FALSE;
-int alarm_count = 0;
+
 
 void alarmHandler(int signal) {
     alarm_enabled = FALSE;
