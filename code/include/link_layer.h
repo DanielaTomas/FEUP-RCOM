@@ -19,6 +19,35 @@ typedef struct
     int timeout;
 } LinkLayer;
 
+
+//bytes
+#define byte_max 3
+// MISC
+#define _POSIX_SOURCE 1 // POSIX compliant source
+
+// FRAME
+int frame_type = 0;
+#define F 0x7E
+#define A_T 0x03
+#define A_R 0x01
+#define SETUP 0x03
+#define UA 0x07
+#define BUFFER_SIZE 255
+#define OK 0x00
+
+
+#define ESC 0x7D
+#define ESC_F 0x5E
+#define ESC_E 0x5D
+
+//Control Values 
+#define CV0 0x00
+#define CV1 0x40
+#define CV2 0x05
+#define CV3 0x85
+#define CV4 0x01
+#define CV5 0x81
+#define DISC 0x0B
 // SIZE of maximum acceptable payload.
 // Maximum number of bytes that application layer should send to link layer
 #define MAX_PAYLOAD_SIZE 1000
@@ -33,7 +62,7 @@ int llopen(LinkLayer connectionParameters);
 
 // Send data in buf with size bufSize.
 // Return number of chars written, or "-1" on error.
-int llwrite(const unsigned char *buf, int bufSize);
+int llwrite(int fd, const unsigned char *buf, int bufSize);
 
 // Receive data in packet.
 // Return number of chars read, or "-1" on error.

@@ -14,31 +14,8 @@
 #include <termios.h>
 #include <string.h>
 
-// MISC
-#define _POSIX_SOURCE 1 // POSIX compliant source
 
-// FRAME
-int frame_type = 0;
-#define F 0x7E
-#define A_T 0x03
-#define A_R 0x01
-#define SETUP 0x03
-#define UA 0x07
-#define BUFFER_SIZE 255
-#define OK 0x00
-
-#define ESC 0x7D
-#define ESC_F 0x5E
-#define ESC_E 0x5D
-
-//Control Values 
-#define CV0 0x00
-#define CV1 0x40
-#define CV2 0x05
-#define CV3 0x85
-#define CV4 0x01
-#define CV5 0x81
-
+unsigned char error_flag = 0;
 ////////////////////////////////////////////////
 // LLOPEN
 ////////////////////////////////////////////////
@@ -214,38 +191,123 @@ int llopen(LinkLayer connectionParameters) {
 ////////////////////////////////////////////////
 // EXTRA-FUNCTIONS
 ////////////////////////////////////////////////
+unsigned char read_message(int fd) {
+  int state = START;
+  unsigned char byte1;
+  unsigned char byte2;
 
-/*send_message(unsigned char* frame_msg, int frame_size, int fd, int declined) {
-   /*do {
+  while (!alarm_enabled && state != STOP) {
+    read(fd, &byte1, 1);
+    switch (state){
+    case START:
+      if (byte1 == F) {
+        state = FLAG_RCV;
+      }
+      break;
+    case FLAG_RCV:
+      if (byte1 == A_T) {
+        state = A_RCV;
+      }
+      else if (byte1 == F) {
+          state = FLAG_RCV;
+      }    
+      else {
+          state = START;
+      }
+      break;
+      
+    case A_RCV:
+      if (byte1 == CV2 || byte1 == CV3 || byte1 == CV4 || byte1 == CV5 || byte1 == DISC) {
+        byte2 = byte1;
+        state = C_RCV;
+      }
+      else {
+        if (byte1 == F) {
+          state = FLAG_RCV;
+        }  
+        else { 
+          state = START;
+        }     
+      }
+      break;
 
-    unsigned char *copy;
+    case C_RCV:
+      if (byte1 == (A_T ^ byte2)) {
+        state = BCC_OK;
+      }  
+      else {
+        state = START;
+      }  
+      break;
+
+    case BCC_OK:
+      if (byte1 == F){
+        alarm(0);
+        state = STOP;
+        return byte2;
+      }
+      else {
+        state = START;
+      }
+      break;
+    }
+  }
+  return 0xFF;
+}
+
+
+send_message(unsigned char* frame_msg, int frame_size, int fd) {
+
+   int declined = FALSE;
+
+   do {
+
+    unsigned char *copy = (unsigned char*)malloc(frame_size),msg;
     
-    //copy = messUpBCC1(frame_msg, frame_size); //altera bcc1
-   /*copy = messUpBCC2(copy, frame_size);         //altera bcc2
+    memcpy(copy, frame_msg, frame_size);
+    int random = (rand() % 100) +1;
+   
+   //BCC1 MODIFIED
+	if(random <= 0) {
+		do {
+			msg = (unsigned char) ('A' + (rand() % 256));
+		} while(msg == copy[3]);
+
+		copy[3] = msg;
+        error_flag = 1;
+
+		printf("BCC1 Modified\n");
+	}
+    free(msg);
+
+    //BCC2 MODIFIED
+    if (random <= 0) {
+        int i = (rand() % (frame_size - 5)) + 4;
+        unsigned char random_msg = (unsigned char)('A' + (rand() % 26));
+        copy[i] = random_msg;
+        
+        printf("BCC2 Modified\n");
+    }
+	
     write(fd, copy, frame_size);
 
     alarm_enabled = FALSE;
     alarm(TIMEOUT);
-    unsigned char C = readControlMessageC(fd);
-    if ((C == CV3 && frame_type == 0) || (C == CV2 && frame_type == 1))
-    {
-      printf("Recebeu rr %x, frame = %d\n", C, frame_type);
+    unsigned char c = read_message(fd);
+    if ((c == CV3 && frame_type == 0) || (c == CV2 && frame_type == 1)) {
       declined = FALSE;
       alarm_count = 0;
       frame_type ^= 1;
       alarm(0);
     }
-    else
-    {
-      if (C == CV5|| C == CV4)
-      {
+    else {
+      if (c == CV5 || c == CV4) {
         declined = TRUE;
-        printf("Recebeu rej %x, frame=%d\n", C, frame_type);
         alarm(0);
       }
     }
-  } while ((alarm_enabled && alarm_count < NUMMAX) || declined);
-}*/
+  } while ((alarm_enabled && alarm_count < byte_max) || declined);
+}
 
 ////////////////////////////////////////////////
 // LLWRITE
@@ -266,7 +328,6 @@ int llwrite(int fd, const unsigned char *buf, int bufSize) {
     unsigned char *bcc2_stuffed = (unsigned char*)malloc(sizeof(unsigned char));
     int bcc2_size = 1;
     int frame_size = bufSize + 6;
-    int rejected = FALSE;
 
     //Stuffing BCC2
     if (bcc2 == F) {
@@ -298,13 +359,13 @@ int llwrite(int fd, const unsigned char *buf, int bufSize) {
     int i = 0;
     while (i < bufSize) {
       if (buf[i] == F) {
-        frame_msg = (unsigned char *)realloc(frame_msg, ++frame_size);
+        frame_msg = (unsigned char*)realloc(frame_msg, ++frame_size);
         frame_msg[j] = ESC;
         frame_msg[j + 1] = ESC_F;
         j = j + 2;
       }
-      else if(buf[i] == ESC){
-          frame_msg = (unsigned char *)realloc(frame_msg, ++frame_size);
+      else if(buf[i] == ESC) {
+          frame_msg = (unsigned char*)realloc(frame_msg, ++frame_size);
           frame_msg[j] = ESC;
           frame_msg[j + 1] = ESC_E;
           j = j + 2;
@@ -316,8 +377,8 @@ int llwrite(int fd, const unsigned char *buf, int bufSize) {
       i++;
     }
 
-    if (bcc2_size != 1){
-      frame_msg = (unsigned char *)realloc(frame_msg, ++frame_size);
+    if (bcc2_size != 1) {
+      frame_msg = (unsigned char*)realloc(frame_msg, ++frame_size);
       frame_msg[j] = bcc2_stuffed[0];
       frame_msg[j + 1] = bcc2_stuffed[1];
       j++;
@@ -327,15 +388,13 @@ int llwrite(int fd, const unsigned char *buf, int bufSize) {
     }
     frame_msg[j + 1] = F;
 
-   //send_message(frame_msg, frame_size, fd, declined);
-  /*
+   send_message(frame_msg, frame_size, fd);
   
-  if (sumAlarms >= NUMMAX)
-    return FALSE;
-  else
-    return TRUE; */
+   if (alarm_count >= byte_max) {
+       return -1;
+   }
 
-    return 1;
+   return 1;
 }
 
 ////////////////////////////////////////////////
