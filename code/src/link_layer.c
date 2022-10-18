@@ -18,6 +18,7 @@
 
 
 int waited = 0;
+struct termios oldtio, newtio;
 ////////////////////////////////////////////////
 // LLOPEN
 ////////////////////////////////////////////////
@@ -90,7 +91,7 @@ int llopenT(LinkLayer connectionParameters) {
 int llopen(LinkLayer connectionParameters) {
     
     fd = open(connectionParameters.serialPort, O_RDWR | O_NOCTTY);
-    struct termios oldtio, newtio;
+  
 
     if (fd < 0) {
         perror(connectionParameters.serialPort);
@@ -121,6 +122,7 @@ int llopen(LinkLayer connectionParameters) {
 
     printf("New termios structure set.\n");
 
+    role = connectionParameters.role;
     switch(connectionParameters.role) {
         case LlRx:
             //printf("LlRx\n");
@@ -135,7 +137,7 @@ int llopen(LinkLayer connectionParameters) {
         default:
             break;
     }
-
+    
     return 1;
 }
 
@@ -262,40 +264,38 @@ int llread(unsigned char *packet) {
 ////////////////////////////////////////////////
 // LLCLOSE
 ////////////////////////////////////////////////
-int llclose(int showStatistics)
-{
-    // TODO medir tempos de envio obtendo S = R/C??
-  readControlMessage(fd, DISC_C);
-  printf("Recebeu DISC\n");
-  sendControlMessage(fd, DISC_C);
-  printf("Mandou DISC\n");
-  readControlMessage(fd, UA_C);
-  printf("Recebeu UA\n");
-  printf("Receiver terminated\n");
+int llclose(int showStatistics) {
 
-  tcsetattr(fd, TCSANOW, &oldtio);
-
-
-  //////////// writer
-  
-  sendControlMessage(fd, DISC);
-  printf("Mandou DISC\n");
-  unsigned char C;
-  //espera ler o DISC
-  C = readControlMessageC(fd);
-  while (C != DISC)
-  {
-    C = readControlMessageC(fd);
+  if(role == LlRx) {
+    readControlMessage(fd, DISC);
+    printf("Received DISC\n");
+    send_message(fd, DISC);
+    printf("Sended DISC\n");
+    send_message(fd, UA);
+    printf("Received UA\n");
+    printf("Terminated\n");
+    tcsetattr(fd, TCSANOW, &oldtio);
   }
-  printf("Leu DISC\n");
-  sendControlMessage(fd, UA_C);
-  printf("Mandou UA final\n");
-  printf("Writer terminated \n");
+  else if(role == LlTx) {
+    send_message(fd, DISC);
+    printf("Mandou DISC\n");
+    unsigned char CV;
+    //espera ler o DISC
+    CV = read_message();
 
-  if (tcsetattr(fd, TCSANOW, &oldtio) == -1)
-  {
-    perror("tcsetattr");
-    exit(-1);
+    while (CV != DISC) {
+        CV = read_message();
+    }
+
+    printf("Leu DISC\n");
+    send_message(fd, UA);
+    printf("Mandou UA final\n");
+    printf("Writer terminated \n");
+
+    if (tcsetattr(fd, TCSANOW, &oldtio) == -1) {
+        perror("tcsetattr");
+        exit(-1);
+    }
   }
   return 1;
 }

@@ -19,6 +19,9 @@ typedef struct
     int timeout;
 } LinkLayer;
 
+// Link Layer
+LinkLayerRole role;
+
 
 //bytes
 #define byte_max 3
@@ -55,6 +58,8 @@ int frame_type = 0;
 // MISC
 #define FALSE 0
 #define TRUE 1
+
+
 
 // Open a connection using the "port" parameters defined in struct linkLayer.
 // Return "1" on success or "-1" on error.

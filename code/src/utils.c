@@ -16,7 +16,8 @@
 ////////////////////////////////////////////////
 // EXTRA-FUNCTIONS
 ////////////////////////////////////////////////
-int send_message_R(unsigned char CV) {
+
+int send_message(unsigned char CV) {
   unsigned char packet[5];
   
   packet[0] = F;
@@ -26,7 +27,7 @@ int send_message_R(unsigned char CV) {
   packet[4] = F;
   
   if(write(fd, packet, 5) == -1) {
-    printf("Couldn't write (send_message_R)\n");
+    printf("Couldn't write (send_message)\n");
     return -1;
   }
 }
@@ -90,10 +91,10 @@ int state_machine_read(RState *state, unsigned char reader, int keep_data, unsig
             if( byte == F) {
               if(verify_BCC2(packet, size)) {
                 if(frame_type == 0) {
-                  send_message_R(CV4);
+                  send_message(CV4);
                 }
                 else {
-                  send_message_R(CV5);
+                  send_message(CV5);
                 }
                 printf("Sended REJ, T:%d\n", frame_type);
                 *state = BREAK;
@@ -128,7 +129,7 @@ int state_machine_read(RState *state, unsigned char reader, int keep_data, unsig
 }
 
 unsigned char read_message() {
-  int state = START;
+  RState state = START;
   unsigned char byte1, byte2;
 
   while (!alarm_enabled && state != STOP) {
@@ -244,4 +245,51 @@ int send_message_W(unsigned char* frame_msg, int frame_size) {
   } while((alarm_enabled && alarm_count < byte_max) || declined);
 
   return bytesWritten;
+}
+
+int readControlMessage(unsigned char CV){
+  unsigned char byte;
+  RState state = START;
+  while(state != STOP) {
+    read(fd,&byte,1);
+    switch (state){
+    case START:
+      if(byte == F)
+        state = FLAG_RCV;
+      break;
+
+    case FLAG_RCV:
+        if(byte == A_RCV) {
+            state = A_RCV;
+        }
+        else if(byte == F) {
+            state = FLAG_RCV;
+        }
+        else {
+            state = START;
+        }
+        break;
+        
+    case A_RCV:
+      if(byte == CV) {
+        state = C_RCV;
+      }
+      else if (byte == F) {
+        state = FLAG_RCV;
+      }
+      else {
+        state = START;
+      }
+      break;
+      
+    case C_RCV:
+      state = (byte == (A_RCV ^ CV)) ? BCC_OK : START;
+      break;
+
+    case BCC_OK:
+      state = ( byte == F) ? STOP : START;
+      break; 
+    }
+  }
+  return 1;
 }
