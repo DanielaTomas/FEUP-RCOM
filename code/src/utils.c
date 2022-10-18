@@ -41,7 +41,7 @@ int verify_BCC2(unsigned char *packet, int size) {
   return BCC2 == packet[size-1];
 }
 
-void state_machine_read(RState *state, unsigned char reader, int keep_data, unsigned char byte, int frame_type, int size, unsigned char *packet) {
+int state_machine_read(RState *state, unsigned char reader, int keep_data, unsigned char byte, int frame_type, int size, unsigned char *packet) {
  switch (*state) {
         case START:
             if (byte == F) {
@@ -107,12 +107,24 @@ void state_machine_read(RState *state, unsigned char reader, int keep_data, unsi
               packet = (unsigned char *)realloc(packet,++(size));
               packet[size-1] = byte; 
             }
+            break;
         case STOP: 
-            if(byte == ESC_F )    
-            
-        default:
+            if(byte == ESC_F ) {
+              packet = (unsigned char *)realloc(packet,++(size));
+              packet[size-1] = F;
+            }
+            else if(byte == ESC_E) {
+              packet = (unsigned char *)realloc(packet,++(size));
+              packet[size-1] = ESC;
+            }
+            else {
+              printf("Error after escape character\n");
+              return -1; 
+            }
+            *state = BCC_OK;
             break;
     }
+    return size;
 }
 
 unsigned char read_message() {
@@ -177,7 +189,6 @@ unsigned char read_message() {
   }
   return 0xFF;
 }
-
 
 int send_message_W(unsigned char* frame_msg, int frame_size) {
 

@@ -16,6 +16,8 @@
 #include <termios.h>
 #include <string.h>
 
+
+int waited = 0;
 ////////////////////////////////////////////////
 // LLOPEN
 ////////////////////////////////////////////////
@@ -137,7 +139,6 @@ int llopen(LinkLayer connectionParameters) {
     return 1;
 }
 
-
 ////////////////////////////////////////////////
 // LLWRITE
 ////////////////////////////////////////////////
@@ -244,11 +245,18 @@ int llread(unsigned char *packet) {
       printf("Couldn't read (LLREAD)\n");
       return -1;
     }
-    state_machine_read(&state, reader, keep_data, c, frame_type, size, &packet);
+    size = state_machine_read(&state, reader, keep_data, c, frame_type, size, &packet);
+    printf("Packet Size : %d\n",size);
   }
- 
 
-    return 0;
+  if(keep_data && frame_type ==  waited) {
+    waited ^= 1;
+  }
+  else {
+    size = 0;
+  }
+
+  return size;
 }
 
 ////////////////////////////////////////////////
@@ -257,5 +265,37 @@ int llread(unsigned char *packet) {
 int llclose(int showStatistics)
 {
     // TODO medir tempos de envio obtendo S = R/C??
-    return 1;
+  readControlMessage(fd, DISC_C);
+  printf("Recebeu DISC\n");
+  sendControlMessage(fd, DISC_C);
+  printf("Mandou DISC\n");
+  readControlMessage(fd, UA_C);
+  printf("Recebeu UA\n");
+  printf("Receiver terminated\n");
+
+  tcsetattr(fd, TCSANOW, &oldtio);
+
+
+  //////////// writer
+  
+  sendControlMessage(fd, DISC);
+  printf("Mandou DISC\n");
+  unsigned char C;
+  //espera ler o DISC
+  C = readControlMessageC(fd);
+  while (C != DISC)
+  {
+    C = readControlMessageC(fd);
+  }
+  printf("Leu DISC\n");
+  sendControlMessage(fd, UA_C);
+  printf("Mandou UA final\n");
+  printf("Writer terminated \n");
+
+  if (tcsetattr(fd, TCSANOW, &oldtio) == -1)
+  {
+    perror("tcsetattr");
+    exit(-1);
+  }
+  return 1;
 }

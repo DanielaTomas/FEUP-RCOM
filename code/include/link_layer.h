@@ -79,5 +79,6 @@ int llopenT(LinkLayer connectionParameters);
 
 int fd;
 unsigned char error_flag = 0;
+int waited = 0;
 
 #endif // _LINK_LAYER_H_
