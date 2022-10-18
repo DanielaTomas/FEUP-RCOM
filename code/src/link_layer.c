@@ -2,6 +2,8 @@
 #include <fcntl.h>
 #include "link_layer.h"
 #include "alarm.h"
+#include "utils.h"
+#include "state_machine.h"
 #include "main.c"
 #include <stdio.h>
 #include <fcntl.h>
@@ -14,69 +16,17 @@
 #include <termios.h>
 #include <string.h>
 
-
-unsigned char error_flag = 0;
 ////////////////////////////////////////////////
 // LLOPEN
 ////////////////////////////////////////////////
-void stateHandler(LinkLayer connectionParameters, unsigned char byte, RState* state) {
-    switch (*state) {
-        case START:
-            if (byte == F) {
-                *state = FLAG_RCV;
-            }
-            break;
 
-        case FLAG_RCV:
-            if (byte == A_T) {
-                *state = A_RCV;
-            }
-            else if (byte != F) {
-                 *state = START;
-            }
-            break;
 
-        case A_RCV:
-            if (byte == F) {
-                *state = FLAG_RCV;
-            }
-            else if ((byte == SETUP && connectionParameters.role == LlRx) 
-                    || (byte == UA && connectionParameters.role == LlTx)) {
-                *state = C_RCV;
-            }
-            else {
-                *state = START;
-            }
-            break;
-
-        case C_RCV:
-            if (byte == F) {
-                *state = FLAG_RCV;
-            }
-            else if ((byte == (A_T ^ SETUP) && connectionParameters.role == LlRx) 
-                    || (byte == (A_T ^ UA) && connectionParameters.role == LlTx)) {
-                *state = BCC_OK;
-            }
-            else {
-                *state = START;
-            }
-            break;
-
-        case BCC_OK:
-            *state = (byte == F) ? STOP : START;
-            break;
-            
-        default:
-            break;
-    }
-}
-
-int llopenR(LinkLayer connectionParameters, int fd) {
-    RState state = START;
+int llopenR(LinkLayer connectionParameters) {
     //printf("llopenR\n");
+    RState state = START;
     unsigned char byte;
-    unsigned char frame[5];
-    int frame_size = 0;
+    //unsigned char frame[5];
+    //int frame_size = 0;
 
     while(state != STOP) {
         
@@ -88,11 +38,11 @@ int llopenR(LinkLayer connectionParameters, int fd) {
             exit(-1);
         }
 
-        frame_size++;
+        //frame_size++;
         //printf("Frame_size: %d\n",frame_size);
         //printf("Byte: %x\n", byte);
     
-        stateHandler(connectionParameters, byte, &state);
+        state_machine(connectionParameters, byte, &state);
     }
     
     unsigned char ua[5] = {F, A_T, UA, A_T ^ UA, F};
@@ -105,7 +55,7 @@ int llopenR(LinkLayer connectionParameters, int fd) {
     return 1; 
 }
 
-int llopenT(LinkLayer connectionParameters, int fd) {
+int llopenT(LinkLayer connectionParameters) {
     //printf("Entered Tx \n");
     RState state = START;
     
@@ -123,7 +73,6 @@ int llopenT(LinkLayer connectionParameters, int fd) {
         alarm(connectionParameters.timeout);
 
         while(state != STOP) {
-            printf("Estoiro\n");
             if (read(fd, &byte, 1) == -1){
                 perror("Error reading a byte (llopenT)\n");
                 exit(-1);
@@ -138,7 +87,7 @@ int llopenT(LinkLayer connectionParameters, int fd) {
 
 int llopen(LinkLayer connectionParameters) {
     
-    int fd = open(connectionParameters.serialPort, O_RDWR | O_NOCTTY);
+    fd = open(connectionParameters.serialPort, O_RDWR | O_NOCTTY);
     struct termios oldtio, newtio;
 
     if (fd < 0) {
@@ -172,13 +121,13 @@ int llopen(LinkLayer connectionParameters) {
 
     switch(connectionParameters.role) {
         case LlRx:
-            printf("LlRx\n");
-            llopenR(connectionParameters,fd);     
+            //printf("LlRx\n");
+            llopenR(connectionParameters);     
             break;
             
         case LlTx:
-            printf("LlTx\n");
-            llopenT(connectionParameters,fd);
+            //printf("LlTx\n");
+            llopenT(connectionParameters);
             break;
             
         default:
@@ -188,131 +137,11 @@ int llopen(LinkLayer connectionParameters) {
     return 1;
 }
 
-////////////////////////////////////////////////
-// EXTRA-FUNCTIONS
-////////////////////////////////////////////////
-unsigned char read_message(int fd) {
-  int state = START;
-  unsigned char byte1;
-  unsigned char byte2;
-
-  while (!alarm_enabled && state != STOP) {
-    read(fd, &byte1, 1);
-    switch (state){
-    case START:
-      if (byte1 == F) {
-        state = FLAG_RCV;
-      }
-      break;
-    case FLAG_RCV:
-      if (byte1 == A_T) {
-        state = A_RCV;
-      }
-      else if (byte1 == F) {
-          state = FLAG_RCV;
-      }    
-      else {
-          state = START;
-      }
-      break;
-      
-    case A_RCV:
-      if (byte1 == CV2 || byte1 == CV3 || byte1 == CV4 || byte1 == CV5 || byte1 == DISC) {
-        byte2 = byte1;
-        state = C_RCV;
-      }
-      else {
-        if (byte1 == F) {
-          state = FLAG_RCV;
-        }  
-        else { 
-          state = START;
-        }     
-      }
-      break;
-
-    case C_RCV:
-      if (byte1 == (A_T ^ byte2)) {
-        state = BCC_OK;
-      }  
-      else {
-        state = START;
-      }  
-      break;
-
-    case BCC_OK:
-      if (byte1 == F){
-        alarm(0);
-        state = STOP;
-        return byte2;
-      }
-      else {
-        state = START;
-      }
-      break;
-    }
-  }
-  return 0xFF;
-}
-
-
-send_message(unsigned char* frame_msg, int frame_size, int fd) {
-
-   int declined = FALSE;
-
-   do {
-
-    unsigned char *copy = (unsigned char*)malloc(frame_size),msg;
-    
-    memcpy(copy, frame_msg, frame_size);
-    int random = (rand() % 100) +1;
-   
-   //BCC1 MODIFIED
-	if(random <= 0) {
-		do {
-			msg = (unsigned char) ('A' + (rand() % 256));
-		} while(msg == copy[3]);
-
-		copy[3] = msg;
-        error_flag = 1;
-
-		printf("BCC1 Modified\n");
-	}
-    free(msg);
-
-    //BCC2 MODIFIED
-    if (random <= 0) {
-        int i = (rand() % (frame_size - 5)) + 4;
-        unsigned char random_msg = (unsigned char)('A' + (rand() % 26));
-        copy[i] = random_msg;
-        
-        printf("BCC2 Modified\n");
-    }
-	
-    write(fd, copy, frame_size);
-
-    alarm_enabled = FALSE;
-    alarm(TIMEOUT);
-    unsigned char c = read_message(fd);
-    if ((c == CV3 && frame_type == 0) || (c == CV2 && frame_type == 1)) {
-      declined = FALSE;
-      alarm_count = 0;
-      frame_type ^= 1;
-      alarm(0);
-    }
-    else {
-      if (c == CV5 || c == CV4) {
-        declined = TRUE;
-        alarm(0);
-      }
-    }
-  } while ((alarm_enabled && alarm_count < byte_max) || declined);
-}
 
 ////////////////////////////////////////////////
 // LLWRITE
 ////////////////////////////////////////////////
-int llwrite(int fd, const unsigned char *buf, int bufSize) {
+int llwrite(const unsigned char *buf, int bufSize) {
 
     if(bufSize < 0) {
         perror(bufSize);
@@ -388,21 +217,36 @@ int llwrite(int fd, const unsigned char *buf, int bufSize) {
     }
     frame_msg[j + 1] = F;
 
-   send_message(frame_msg, frame_size, fd);
+   int bytesWritten = send_message_W(frame_msg, frame_size);
   
-   if (alarm_count >= byte_max) {
+   if (bytesWritten-6 < 0 || alarm_count >= byte_max) {
        return -1;
    }
 
-   return 1;
+   return bytesWritten - 6;
 }
 
 ////////////////////////////////////////////////
 // LLREAD
 ////////////////////////////////////////////////
-int llread(unsigned char *packet)
-{
-    // TODO
+int llread(unsigned char *packet) {
+
+  int size = 0;
+  RState state = START; 
+  frame_type = 0;
+  unsigned char reader;
+  int keep_data = 0;
+  unsigned char c;
+
+  while(state != BREAK) {
+    if(read(fd,&c,1) == -1) {
+      int size = 0;
+      printf("Couldn't read (LLREAD)\n");
+      return -1;
+    }
+    state_machine_read(&state, reader, keep_data, c, frame_type, size, &packet);
+  }
+ 
 
     return 0;
 }
