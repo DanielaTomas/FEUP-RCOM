@@ -4,7 +4,6 @@
 #include "alarm.h"
 #include "utils.h"
 #include "state_machine.h"
-#include "main.c"
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -17,12 +16,17 @@
 #include <string.h>
 
 
-int waited = 0;
 struct termios oldtio, newtio;
+LinkLayerRole role;
+int frame_type = 0;
+int fd;
+int waited = 0;
 ////////////////////////////////////////////////
 // LLOPEN
 ////////////////////////////////////////////////
-
+int getFileDescriptor() {
+    return fd;
+}
 
 int llopenR(LinkLayer connectionParameters) {
     //printf("llopenR\n");
@@ -80,7 +84,7 @@ int llopenT(LinkLayer connectionParameters) {
                 perror("Error reading a byte (llopenT)\n");
                 exit(-1);
             }
-            stateHandler(connectionParameters, byte, &state);
+            state_machine(connectionParameters, byte, &state);
         }
     
     }
@@ -147,12 +151,11 @@ int llopen(LinkLayer connectionParameters) {
 int llwrite(const unsigned char *buf, int bufSize) {
 
     if(bufSize < 0) {
-        perror(bufSize);
-        exit(-1);
+        printf("%d",bufSize);
+        return -1;
     }
 
     unsigned char bcc2 = buf[0];
-    int declined;
 
     for (int i = 1; i < bufSize; i++)
         bcc2 ^= buf[i];
@@ -220,9 +223,9 @@ int llwrite(const unsigned char *buf, int bufSize) {
     }
     frame_msg[j + 1] = F;
 
-   int bytesWritten = send_message_W(frame_msg, frame_size);
+   int bytesWritten = send_message_W(frame_msg, frame_size, frame_type);
   
-   if (bytesWritten-6 < 0 || alarm_count >= byte_max) {
+   if (bytesWritten-6 < 0 || getAlarmCount() >= byte_max) {
        return -1;
    }
 
@@ -243,11 +246,11 @@ int llread(unsigned char *packet) {
 
   while(state != BREAK) {
     if(read(fd,&c,1) == -1) {
-      int size = 0;
+      size = 0;
       printf("Couldn't read (LLREAD)\n");
       return -1;
     }
-    size = state_machine_read(&state, reader, keep_data, c, frame_type, size, &packet);
+    size = state_machine_read(&state, &reader, keep_data, c, frame_type, size, packet);
     printf("Packet Size : %d\n",size);
   }
 
@@ -267,20 +270,24 @@ int llread(unsigned char *packet) {
 int llclose(int showStatistics) {
 
   if(role == LlRx) {
-    readControlMessage(fd, DISC);
+    readControlMessage(DISC);
     printf("Received DISC\n");
-    send_message(fd, DISC);
+    send_message(DISC);
     printf("Sended DISC\n");
-    send_message(fd, UA);
+    send_message(UA);
     printf("Received UA\n");
     printf("Terminated\n");
-    tcsetattr(fd, TCSANOW, &oldtio);
+    
+    if (tcsetattr(fd, TCSANOW, &oldtio) == -1) {
+        perror("tcsetattr");
+        exit(-1);
+    }
   }
+
   else if(role == LlTx) {
-    send_message(fd, DISC);
+    send_message( DISC);
     printf("Mandou DISC\n");
     unsigned char CV;
-    //espera ler o DISC
     CV = read_message();
 
     while (CV != DISC) {
@@ -288,7 +295,7 @@ int llclose(int showStatistics) {
     }
 
     printf("Leu DISC\n");
-    send_message(fd, UA);
+    send_message(UA);
     printf("Mandou UA final\n");
     printf("Writer terminated \n");
 

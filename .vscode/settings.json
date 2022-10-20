@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "stdio.h": "c",
+        "alarm.h": "c",
+        "link_layer.h": "c",
+        "signal.h": "c",
+        "stdbool.h": "c"
+    }
+}

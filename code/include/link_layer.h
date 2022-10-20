@@ -19,9 +19,6 @@ typedef struct
     int timeout;
 } LinkLayer;
 
-// Link Layer
-LinkLayerRole role;
-
 
 //bytes
 #define byte_max 3
@@ -29,7 +26,6 @@ LinkLayerRole role;
 #define _POSIX_SOURCE 1 // POSIX compliant source
 
 // FRAME
-int frame_type = 0;
 #define F 0x7E
 #define A_T 0x03
 #define A_R 0x01
@@ -37,7 +33,7 @@ int frame_type = 0;
 #define UA 0x07
 #define BUFFER_SIZE 255
 #define OK 0x00
-
+#define END2 0x03
 
 #define ESC 0x7D
 #define ESC_F 0x5E
@@ -60,10 +56,12 @@ int frame_type = 0;
 #define TRUE 1
 
 
-
 // Open a connection using the "port" parameters defined in struct linkLayer.
 // Return "1" on success or "-1" on error.
 int llopen(LinkLayer connectionParameters);
+int llopenR(LinkLayer connectionParameters);
+int llopenT(LinkLayer connectionParameters);
+
 
 // Send data in buf with size bufSize.
 // Return number of chars written, or "-1" on error.
@@ -81,9 +79,5 @@ int llclose(int showStatistics);
 typedef enum {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, STOP, BREAK} RState;
 int llopenR(LinkLayer connectionParameters);
 int llopenT(LinkLayer connectionParameters);
-
-int fd;
-unsigned char error_flag = 0;
-int waited = 0;
 
 #endif // _LINK_LAYER_H_

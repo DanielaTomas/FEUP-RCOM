@@ -2,7 +2,6 @@
 #include "link_layer.h"
 #include "alarm.h"
 #include "utils.h"
-#include "main.c"
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>

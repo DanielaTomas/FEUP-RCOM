@@ -1,7 +1,6 @@
 #include <fcntl.h>
 #include "link_layer.h"
 #include "alarm.h"
-#include "main.c"
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -13,11 +12,41 @@
 #include <termios.h>
 #include <string.h>
 
+
+unsigned char error_flag = 0;
 ////////////////////////////////////////////////
 // EXTRA-FUNCTIONS
 ////////////////////////////////////////////////
+unsigned char *remove_header(unsigned char *toRemove, int sizeToRemove, int *sizeRemoved)
+{
+  int i = 0;
+  int j = 4;
+  unsigned char *messageRemovedHeader = (unsigned char *)malloc(sizeToRemove - 4);
+  for (; i < sizeToRemove; i++, j++)
+  {
+    messageRemovedHeader[i] = toRemove[j];
+  }
+  *sizeRemoved = sizeToRemove - 4;
+  return messageRemovedHeader;
+}
 
-int send_message(unsigned char CV) {
+int msg_ended(unsigned char *packet, unsigned char *end, int packet_len, int end_len) {
+  int begin = 1, finish = 1;
+  
+  if(packet_len == end_len) {
+    if (end[0] == END2) {
+      while(begin < packet_len) {
+        if (packet[begin] != end[finish])
+          return FALSE;
+        begin++, finish++;
+      }
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+void send_message(unsigned char CV) {
   unsigned char packet[5];
   
   packet[0] = F;
@@ -26,9 +55,8 @@ int send_message(unsigned char CV) {
   packet[3] = packet[1] ^ packet[2];
   packet[4] = F;
   
-  if(write(fd, packet, 5) == -1) {
+  if(write(getFileDescriptor(), packet, 5) == -1) {
     printf("Couldn't write (send_message)\n");
-    return -1;
   }
 }
 
@@ -132,8 +160,8 @@ unsigned char read_message() {
   RState state = START;
   unsigned char byte1, byte2;
 
-  while (!alarm_enabled && state != STOP) {
-    read(fd, &byte1, 1);
+  while (!isAlarmEnabled() && state != STOP) {
+    read(getFileDescriptor(), &byte1, 1);
     switch (state){
     case START:
       if (byte1 == F) {
@@ -191,7 +219,7 @@ unsigned char read_message() {
   return 0xFF;
 }
 
-int send_message_W(unsigned char* frame_msg, int frame_size) {
+int send_message_W(unsigned char* frame_msg, int frame_size, int frame_type) {
 
    int declined = FALSE;
    int bytesWritten = -1;
@@ -214,7 +242,7 @@ int send_message_W(unsigned char* frame_msg, int frame_size) {
 
         printf("BCC1 Modified\n");
       }
-      free(msg);
+      //free(msg);
 
       //BCC2 MODIFIED
       if (random <= 0) {
@@ -225,14 +253,14 @@ int send_message_W(unsigned char* frame_msg, int frame_size) {
           printf("BCC2 Modified\n");
       }
     
-      bytesWritten = write(fd, copy, frame_size);
+      bytesWritten = write(getFileDescriptor(), copy, frame_size);
 
-      alarm_enabled = FALSE;
-      alarm(TIMEOUT);
+      setAlarmEnabled(FALSE);
+      alarm(4);
       unsigned char c = read_message();
       if ((c == CV3 && frame_type == 0) || (c == CV2 && frame_type == 1)) {
         declined = FALSE;
-        alarm_count = 0;
+        setAlarmCount(0);
         frame_type ^= 1;
         alarm(0);
       }
@@ -242,16 +270,16 @@ int send_message_W(unsigned char* frame_msg, int frame_size) {
           alarm(0);
         }
       }
-  } while((alarm_enabled && alarm_count < byte_max) || declined);
+  } while((isAlarmEnabled() && getAlarmCount() < byte_max) || declined);
 
   return bytesWritten;
 }
 
-int readControlMessage(unsigned char CV){
+void readControlMessage(unsigned char CV){
   unsigned char byte;
   RState state = START;
   while(state != STOP) {
-    read(fd,&byte,1);
+    read(getFileDescriptor(),&byte,1);
     switch (state){
     case START:
       if(byte == F)
@@ -287,9 +315,8 @@ int readControlMessage(unsigned char CV){
       break;
 
     case BCC_OK:
-      state = ( byte == F) ? STOP : START;
+      state = (byte == F) ? STOP : START;
       break; 
     }
   }
-  return 1;
 }
