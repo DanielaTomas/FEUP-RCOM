@@ -15,7 +15,7 @@
 #include <termios.h>
 #include <string.h>
 
-
+extern int alarm_count;
 struct termios oldtio, newtio;
 LinkLayerRole role;
 int frame_type = 0;
@@ -24,9 +24,6 @@ int waited = 0;
 ////////////////////////////////////////////////
 // LLOPEN
 ////////////////////////////////////////////////
-int getFileDescriptor() {
-    return fd;
-}
 
 int llopenR(LinkLayer connectionParameters) {
     //printf("llopenR\n");
@@ -37,17 +34,14 @@ int llopenR(LinkLayer connectionParameters) {
 
     while(state != STOP) {
         
-        //printf("Role before read: %u\n", connectionParameters.role);
-        
-        if (read(fd, &byte, 5) == -1){
-            //printf(connectionParameters.role);
+        if (read(fd, &byte, 1) == -1){
             perror("Error reading a byte (llopenR)\n");
             exit(-1);
         }
 
         //frame_size++;
         //printf("Frame_size: %d\n",frame_size);
-        //printf("Byte: %x\n", byte);
+        printf("Byte: %x\n", byte);
     
         state_machine(connectionParameters, byte, &state);
     }
@@ -58,7 +52,6 @@ int llopenR(LinkLayer connectionParameters) {
         perror("Error writting (llopenR)\n");
         exit(-1);
     }
-    
     return 1; 
 }
 
@@ -70,7 +63,7 @@ int llopenT(LinkLayer connectionParameters) {
     unsigned char byte;
     
     (void)signal(SIGALRM, alarmHandler);
-    while(getAlarmCount() < connectionParameters.nRetransmissions) {
+    while(alarm_count < connectionParameters.nRetransmissions) {
         
         if(write(fd, set, 5) == -1){
             perror("Error writting (llopenT)\n");
@@ -84,11 +77,13 @@ int llopenT(LinkLayer connectionParameters) {
                 perror("Error reading a byte (llopenT)\n");
                 exit(-1);
             }
+            printf("%d\n",state);
             state_machine(connectionParameters, byte, &state);
         }
-    
     }
 
+    printf("ESTOU AQUI!!");
+    
     return 1;
 }
 
@@ -129,12 +124,12 @@ int llopen(LinkLayer connectionParameters) {
     role = connectionParameters.role;
     switch(connectionParameters.role) {
         case LlRx:
-            //printf("LlRx\n");
+            printf("LlRx\n");
             llopenR(connectionParameters);     
             break;
             
         case LlTx:
-            //printf("LlTx\n");
+            printf("LlTx\n");
             llopenT(connectionParameters);
             break;
             
@@ -225,7 +220,7 @@ int llwrite(const unsigned char *buf, int bufSize) {
 
    int bytesWritten = send_message_W(frame_msg, frame_size, frame_type);
   
-   if (bytesWritten-6 < 0 || getAlarmCount() >= byte_max) {
+   if (bytesWritten-6 < 0 || alarm_count >= byte_max) {
        return -1;
    }
 
@@ -242,16 +237,17 @@ int llread(unsigned char *packet) {
   frame_type = 0;
   unsigned char reader;
   int keep_data = 0;
-  unsigned char c;
+  unsigned char byte;
 
   while(state != BREAK) {
-    if(read(fd,&c,1) == -1) {
-      size = 0;
-      printf("Couldn't read (LLREAD)\n");
-      return -1;
+    if(read(fd,&byte,1) == -1) {
+      perror("Couldn't read (llread)\n");
+      exit(-1);
     }
-    size = state_machine_read(&state, &reader, keep_data, c, frame_type, size, packet);
-    printf("Packet Size : %d\n",size);
+    //printf("Byte %x\n",byte);
+    size = state_machine_R(&state, &reader, &keep_data, byte, &frame_type, size, packet);
+   
+    //printf("Packet Size: %d\n",*size);
   }
 
   if(keep_data && frame_type ==  waited) {

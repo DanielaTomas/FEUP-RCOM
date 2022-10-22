@@ -1,6 +1,7 @@
 #include <fcntl.h>
 #include "link_layer.h"
 #include "alarm.h"
+#include "state_machine.h"
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -12,22 +13,48 @@
 #include <termios.h>
 #include <string.h>
 
-
+extern int fd;
+extern int alarm_enabled;
+extern int alarm_count;
 unsigned char error_flag = 0;
+unsigned char msgNum = 0;
+int nFrames = 0;
+
 ////////////////////////////////////////////////
 // EXTRA-FUNCTIONS
 ////////////////////////////////////////////////
-unsigned char *remove_header(unsigned char *toRemove, int sizeToRemove, int *sizeRemoved)
-{
-  int i = 0;
-  int j = 4;
-  unsigned char *messageRemovedHeader = (unsigned char *)malloc(sizeToRemove - 4);
-  for (; i < sizeToRemove; i++, j++)
-  {
-    messageRemovedHeader[i] = toRemove[j];
+
+unsigned char *parse_message(unsigned char *msg, off_t *index, int *packet_size, off_t file_size) {
+  
+  unsigned char *packet;
+
+  if (*index + *packet_size > file_size) {
+    *packet_size = file_size - *index;
   }
-  *sizeRemoved = sizeToRemove - 4;
-  return messageRemovedHeader;
+
+  packet = (unsigned char*)malloc(*packet_size);
+  
+  off_t j = *index;
+  for (int i = 0; i < *packet_size; i++, j++) {
+    packet[i] = msg[j];
+  }
+
+  *index = j;
+
+  return packet;
+}
+
+unsigned char *remove_header(unsigned char *remove, int size_to_remove, int *size_removed) {
+
+  unsigned char *msg = (unsigned char*)malloc(size_to_remove - 4);
+
+  for (int i = 0, j = 4; i < size_to_remove; i++, j++) {
+    msg[i] = remove[j];
+  }
+
+  *size_removed = size_to_remove - 4;
+
+  return msg;
 }
 
 int msg_ended(unsigned char *packet, unsigned char *end, int packet_len, int end_len) {
@@ -55,9 +82,36 @@ void send_message(unsigned char CV) {
   packet[3] = packet[1] ^ packet[2];
   packet[4] = F;
   
-  if(write(getFileDescriptor(), packet, 5) == -1) {
+  if(write(fd, packet, 5) == -1) {
     printf("Couldn't write (send_message)\n");
   }
+}
+
+unsigned char *control_packetI(unsigned char state, off_t file_size, unsigned char *file_name, int filename_size, int *packetI_size) {
+  *packetI_size = 9 * sizeof(unsigned char) + filename_size;
+  unsigned char *packet = (unsigned char *)malloc(*packetI_size);
+
+  if (state != START2) {
+    packet[0] = END2;
+    packet[1] = CV0;
+    packet[2] = CV6;
+    packet[3] = (file_size >> 24) & 0xFF;
+    packet[4] = (file_size >> 16) & 0xFF;
+    packet[5] = (file_size >> 8) & 0xFF;
+    packet[6] = file_size & 0xFF;
+    packet[7] = HEADERC;
+    packet[8] = filename_size;
+  }
+  else {
+    packet[0] = START2;
+  }
+  
+  int itr = 0;
+  while(itr < filename_size) {
+    packet[9 + itr] = file_name[itr];
+    itr++;
+  }   
+  return packet;
 }
 
 int verify_BCC2(unsigned char *packet, int size) {
@@ -70,153 +124,20 @@ int verify_BCC2(unsigned char *packet, int size) {
   return BCC2 == packet[size-1];
 }
 
-int state_machine_read(RState *state, unsigned char reader, int keep_data, unsigned char byte, int frame_type, int size, unsigned char *packet) {
- switch (*state) {
-        case START:
-            if (byte == F) {
-                *state = FLAG_RCV;
-            }
-            break;
+unsigned char *header_app_level(unsigned char *packet, off_t file_size, int *headerSize){
+  unsigned char *packetFinal = (unsigned char *)malloc(file_size + 4);
+  packetFinal[0] = HEADERC;
+  packetFinal[1] = msgNum % 255;
+  packetFinal[2] = (int)file_size / 256;
+  packetFinal[3] = (int)file_size % 256;
+ 
+  memcpy(packetFinal + 4, packet, *headerSize);
+ 
+  *headerSize += 4;
+  msgNum++;
+  nFrames++;
 
-        case FLAG_RCV:
-            if (byte == A_T) {
-                *state = A_RCV;
-            }
-            else if (byte != F) {
-                 *state = START;
-            }
-            break;
-
-        case A_RCV:
-            if(byte == CV0) {
-              frame_type = 0;
-              reader = byte;
-              *state = C_RCV;
-            }
-            else if (byte == CV1) {
-                frame_type = 1;
-                reader = byte;
-                *state = C_RCV;
-            }
-            else if ( byte == F) {
-                *state = FLAG_RCV;
-            }
-            else {
-                *state = START;
-            }
-            break;
-
-        case C_RCV:
-            if (byte == (A_T ^ reader)) {
-                *state = BCC_OK;
-            }
-            else {
-                *state = START;
-            }
-            break;
-
-        case BCC_OK:
-            if( byte == F) {
-              if(verify_BCC2(packet, size)) {
-                if(frame_type == 0) {
-                  send_message(CV4);
-                }
-                else {
-                  send_message(CV5);
-                }
-                printf("Sended REJ, T:%d\n", frame_type);
-                *state = BREAK;
-                keep_data = FALSE;
-              }
-            }
-            else if(byte == ESC) {
-              *state = STOP;
-            }
-            else {
-              packet = (unsigned char *)realloc(packet,++(size));
-              packet[size-1] = byte; 
-            }
-            break;
-        case STOP: 
-            if(byte == ESC_F ) {
-              packet = (unsigned char *)realloc(packet,++(size));
-              packet[size-1] = F;
-            }
-            else if(byte == ESC_E) {
-              packet = (unsigned char *)realloc(packet,++(size));
-              packet[size-1] = ESC;
-            }
-            else {
-              printf("Error after escape character\n");
-              return -1; 
-            }
-            *state = BCC_OK;
-            break;
-    }
-    return size;
-}
-
-unsigned char read_message() {
-  RState state = START;
-  unsigned char byte1, byte2;
-
-  while (!isAlarmEnabled() && state != STOP) {
-    read(getFileDescriptor(), &byte1, 1);
-    switch (state){
-    case START:
-      if (byte1 == F) {
-        state = FLAG_RCV;
-      }
-      break;
-    case FLAG_RCV:
-      if (byte1 == A_T) {
-        state = A_RCV;
-      }
-      else if (byte1 == F) {
-          state = FLAG_RCV;
-      }    
-      else {
-          state = START;
-      }
-      break;
-      
-    case A_RCV:
-      if (byte1 == CV2 || byte1 == CV3 || byte1 == CV4 || byte1 == CV5 || byte1 == DISC) {
-        byte2 = byte1;
-        state = C_RCV;
-      }
-      else {
-        if (byte1 == F) {
-          state = FLAG_RCV;
-        }  
-        else { 
-          state = START;
-        }     
-      }
-      break;
-
-    case C_RCV:
-      if (byte1 == (A_T ^ byte2)) {
-        state = BCC_OK;
-      }  
-      else {
-        state = START;
-      }  
-      break;
-
-    case BCC_OK:
-      if (byte1 == F){
-        alarm(0);
-        state = STOP;
-        return byte2;
-      }
-      else {
-        state = START;
-      }
-      break;
-    }
-  }
-  return 0xFF;
+  return packetFinal;
 }
 
 int send_message_W(unsigned char* frame_msg, int frame_size, int frame_type) {
@@ -253,7 +174,7 @@ int send_message_W(unsigned char* frame_msg, int frame_size, int frame_type) {
           printf("BCC2 Modified\n");
       }
     
-      bytesWritten = write(getFileDescriptor(), copy, frame_size);
+      bytesWritten = write(fd, copy, frame_size);
 
       setAlarmEnabled(FALSE);
       alarm(4);
@@ -270,53 +191,7 @@ int send_message_W(unsigned char* frame_msg, int frame_size, int frame_type) {
           alarm(0);
         }
       }
-  } while((isAlarmEnabled() && getAlarmCount() < byte_max) || declined);
+  } while((alarm_enabled && alarm_count < byte_max) || declined);
 
   return bytesWritten;
-}
-
-void readControlMessage(unsigned char CV){
-  unsigned char byte;
-  RState state = START;
-  while(state != STOP) {
-    read(getFileDescriptor(),&byte,1);
-    switch (state){
-    case START:
-      if(byte == F)
-        state = FLAG_RCV;
-      break;
-
-    case FLAG_RCV:
-        if(byte == A_RCV) {
-            state = A_RCV;
-        }
-        else if(byte == F) {
-            state = FLAG_RCV;
-        }
-        else {
-            state = START;
-        }
-        break;
-        
-    case A_RCV:
-      if(byte == CV) {
-        state = C_RCV;
-      }
-      else if (byte == F) {
-        state = FLAG_RCV;
-      }
-      else {
-        state = START;
-      }
-      break;
-      
-    case C_RCV:
-      state = (byte == (A_RCV ^ CV)) ? BCC_OK : START;
-      break;
-
-    case BCC_OK:
-      state = (byte == F) ? STOP : START;
-      break; 
-    }
-  }
 }

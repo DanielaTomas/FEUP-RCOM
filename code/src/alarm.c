@@ -11,13 +11,13 @@ void alarmHandler(int signal) {
     alarm_enabled = FALSE;
     alarm_count++;
 
-    printf("Alarm Counter: %d\n", getAlarmCount());
+    printf("Alarm Counter: %d\n", alarm_count);
 }
 
 int setAlarm(int timeout) {
     (void)signal(SIGALRM, alarmHandler);
 
-    while (getAlarmCount() <= timeout) {
+    while (alarm_count <= timeout) {
         if (alarm_enabled == FALSE) {
             alarm(timeout);
             alarm_enabled = TRUE;
@@ -29,14 +29,6 @@ int setAlarm(int timeout) {
     printf("------------------------\n");
 
     return 0;
-}
-
-int getAlarmCount() {
-    return alarm_count;
-}
-
-int isAlarmEnabled() {
-    return alarm_enabled;
 }
 
 void setAlarmCount(int ac) {

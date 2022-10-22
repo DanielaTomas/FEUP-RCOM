@@ -33,8 +33,9 @@ typedef struct
 #define UA 0x07
 #define BUFFER_SIZE 255
 #define OK 0x00
+#define START2 0x02
 #define END2 0x03
-
+#define HEADERC 0x01
 #define ESC 0x7D
 #define ESC_F 0x5E
 #define ESC_E 0x5D
@@ -46,7 +47,9 @@ typedef struct
 #define CV3 0x85
 #define CV4 0x01
 #define CV5 0x81
+#define CV6 0x04
 #define DISC 0x0B
+
 // SIZE of maximum acceptable payload.
 // Maximum number of bytes that application layer should send to link layer
 #define MAX_PAYLOAD_SIZE 1000

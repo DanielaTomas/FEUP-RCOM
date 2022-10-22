@@ -3,13 +3,12 @@
 #ifndef _UTILS_H_
 #define _UTILS_H_
 
-unsigned char read_message();
-
+unsigned char *parse_message(unsigned char *msg, off_t *index, int *packet_size, off_t file_size);
+unsigned char *remove_header(unsigned char *remove, int size_to_remove, int *size_removed);
 int send_message_W(unsigned char* frame_msg, int frame_size,int frame_type);
 void send_message(unsigned char CV);
-unsigned char read_message();
-int state_machine_read(RState *state, unsigned char* reader, int keep_data, unsigned char byte, int frame_type, int size, unsigned char *packet);
 int verify_BCC2(unsigned char *packet, int size);
-void readControlMessage(unsigned char CV);
+unsigned char *header_app_level(unsigned char *packet, off_t file_size, int *headerSize);
+unsigned char *control_packetI(unsigned char state, off_t file_size, unsigned char *file_name, int filename_size, int *packetI_size);
 
 #endif // _UTILS_H_
