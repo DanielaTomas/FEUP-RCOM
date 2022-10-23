@@ -177,12 +177,12 @@ int send_message_W(unsigned char* frame_msg, int frame_size, int frame_type) {
     
       bytesWritten = write(fdT, copy, frame_size);
 
-      setAlarmEnabled(FALSE);
+      alarm_enabled = FALSE;
       alarm(4);
       unsigned char c = read_message();
       if ((c == CV3 && frame_type == 0) || (c == CV2 && frame_type == 1)) {
         declined = FALSE;
-        setAlarmCount(0);
+        alarm_count = 0;
         frame_type ^= 1;
         alarm(0);
       }

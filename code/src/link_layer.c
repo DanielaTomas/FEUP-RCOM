@@ -16,6 +16,7 @@
 #include <string.h>
 
 extern int alarm_count;
+extern int alarm_enabled;
 struct termios oldtio, newtio;
 LinkLayerRole role;
 int frame_type = 0;
@@ -53,7 +54,7 @@ int llopenR(int fd, LinkLayer connectionParameters) {
         exit(-1);
     }
 
-    printf("ESTOU NO LLOPENR!\n");
+    printf("ESTOU NO llopenR!\n");
     
     return 1; 
 }
@@ -65,8 +66,7 @@ int llopenT(int fd, LinkLayer connectionParameters) {
     unsigned char set[5] = {F, A_T, SETUP, A_T ^ SETUP, F};
     unsigned char byte;
     
-    (void)signal(SIGALRM, alarmHandler);
-    while(alarm_count < connectionParameters.nRetransmissions) {
+    while(alarm_enabled && alarm_count < connectionParameters.nRetransmissions) {
         
         if(write(fd, set, 5) == -1){
             perror("Error writting (llopenT)\n");
@@ -74,8 +74,9 @@ int llopenT(int fd, LinkLayer connectionParameters) {
         }
 
         alarm(connectionParameters.timeout);
+        alarm_enabled = FALSE;
 
-        while(state != STOP) {
+        while(!alarm_enabled && state != STOP) {
             if (read(fd, &byte, 1) == -1){
                 perror("Error reading a byte (llopenT)\n");
                 exit(-1);
@@ -85,7 +86,10 @@ int llopenT(int fd, LinkLayer connectionParameters) {
         }
     }
 
-    printf("ESTOU AQUI NO LLOPENT!!\n");
+    if (alarm_enabled) {
+       return FALSE;
+    }
+    printf("ESTOU NO llopenT!\n");
     
     return 1;
 }

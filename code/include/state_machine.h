@@ -6,6 +6,9 @@
 
 void state_machine(LinkLayer connectionParameters, unsigned char byte, RState* state);
 
+/*
+ Retorna o tamanho
+*/
 int state_machine_R(RState *state, unsigned char* reader, int* keep_data, unsigned char byte, int* frame_type, int size, unsigned char *packet);
 /*
   Retorna o campo de controlo da frame de Supervisao lida 

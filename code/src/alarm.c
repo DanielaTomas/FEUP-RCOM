@@ -30,11 +30,3 @@ int setAlarm(int timeout) {
 
     return 0;
 }
-
-void setAlarmCount(int ac) {
-    alarm_count = ac;
-}
-
-void setAlarmEnabled(int ae) {
-    alarm_enabled = ae;
-}

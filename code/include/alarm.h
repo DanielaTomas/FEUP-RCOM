@@ -5,7 +5,5 @@
 
 void alarmHandler(int signal);
 int setAlarm(int timeout);
-void setAlarmCount(int ac);
-void setAlarmEnabled(int ae);
 
 #endif // _ALARM_H_
