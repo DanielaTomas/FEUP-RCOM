@@ -21,7 +21,7 @@ int send_message_W(unsigned char* frame_msg, int frame_size,int frame_type);
 /*
   Envia uma frame de controlo
 */
-void send_message(unsigned char CV);
+void send_message(int fd, unsigned char CV);
 /*
   Verifica se o BCC2 recebido esta correto
 */

@@ -74,7 +74,8 @@ int msg_ended(unsigned char *packet, unsigned char *end, int packet_len, int end
   return FALSE;
 }
 
-void send_message(unsigned char CV) {
+void send_message(int fd, unsigned char CV) {
+  //printf("send message here!!");
   unsigned char packet[5];
   
   packet[0] = F;
@@ -83,7 +84,7 @@ void send_message(unsigned char CV) {
   packet[3] = packet[1] ^ packet[2];
   packet[4] = F;
   
-  if(write(fdT, packet, 5) == -1) {
+  if(write(fd, packet, 5) == -1) {
     printf("Couldn't write (send_message)\n");
   }
 }
@@ -116,13 +117,19 @@ unsigned char *control_packetI(unsigned char state, off_t file_size, unsigned ch
 }
 
 int verify_BCC2(unsigned char *packet, int size) {
+
   unsigned char BCC2 = packet[0];
   
-  for(int itr = 1; itr < size - 1; itr++) {
+  for(int itr = 1; itr < size-1; itr++) {
     BCC2 ^= packet[itr];
+    //printf("BCC2 = %x, packet[%d] = %x\n",BCC2, itr,packet[itr]);
   }
   
-  return BCC2 == packet[size-1];
+  if (BCC2 != packet[size-1]) {
+    return FALSE;
+  }
+  
+  return TRUE;
 }
 
 unsigned char *header_app_level(unsigned char *packet, off_t file_size, int *headerSize){
@@ -179,7 +186,7 @@ int send_message_W(unsigned char* frame_msg, int frame_size, int frame_type) {
 
       alarm_enabled = FALSE;
       alarm(4);
-      unsigned char c = read_message();
+      unsigned char c = read_message_T();
       if ((c == CV3 && frame_type == 0) || (c == CV2 && frame_type == 1)) {
         declined = FALSE;
         alarm_count = 0;

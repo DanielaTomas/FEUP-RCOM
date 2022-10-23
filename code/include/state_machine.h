@@ -4,8 +4,6 @@
 #ifndef _STATE_MACHINE_H_
 #define _STATE_MACHINE_H_
 
-void state_machine(LinkLayer connectionParameters, unsigned char byte, RState* state);
-
 /*
  Retorna o tamanho
 */
@@ -13,10 +11,12 @@ int state_machine_R(RState *state, unsigned char* reader, int* keep_data, unsign
 /*
   Retorna o campo de controlo da frame de Supervisao lida 
 */
-unsigned char read_message();
+unsigned char read_message_T();
 /*
   Verifica se o frame recebido e o desejado
 */
-void readControlMessage(unsigned char CV);
+void read_message_R(unsigned char CV);
+
+void state_machine_UA(RState *state, unsigned char *byte, int *stop);
 
 #endif // _STATE_MACHINE_H_

@@ -44,7 +44,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
 
     int packet_size = 0;
     int buffSize = 0;
-    unsigned char *packet = NULL;
+    unsigned char *packet = (unsigned char *)malloc(0);
     off_t file_size = 0;
     off_t index = 0;
 

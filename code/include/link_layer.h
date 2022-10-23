@@ -64,7 +64,8 @@ typedef struct
 int llopen(LinkLayer connectionParameters);
 
 // Lê a trama de controlo SET e envia a trama UA
-int llopenR(int fd, LinkLayer connectionParameters);
+void llopenR(int fd,LinkLayer connectionParameters);
+
 // Envia trama de supervisão SET e recebe a trama UA
 int llopenT(int fd, LinkLayer connectionParameters);
 

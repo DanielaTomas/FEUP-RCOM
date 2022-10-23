@@ -23,75 +23,45 @@ int frame_type = 0;
 int fdT;
 int fdR;
 int waited = 0;
+
 ////////////////////////////////////////////////
 // LLOPEN
 ////////////////////////////////////////////////
 
-int llopenR(int fd, LinkLayer connectionParameters) {
-    //printf("llopenR\n");
-    RState state = START;
-    unsigned char byte;
-    //int frame_size = 0;
-
-    while(state != STOP) {
-        
-        if (read(fd, &byte, 1) == -1){
-            perror("Error reading a byte (llopenR)\n");
-            exit(-1);
-        }
-
-        //frame_size++;
-        //printf("Frame_size: %d\n",frame_size);
-        printf("Byte: %x\n", byte);
-    
-        state_machine(connectionParameters, byte, &state);
-    }
-    
-    unsigned char ua[5] = {F, A_T, UA, A_T ^ UA, F};
-
-    if(write(fd, ua, 5) == -1){
-        perror("Error writting (llopenR)\n");
-        exit(-1);
-    }
-
-    printf("ESTOU NO llopenR!\n");
-    
-    return 1; 
+void llopenR(int fd, LinkLayer connectionParameters) {
+    read_message_R(SETUP);
+    printf("Sent SET\n");
+    send_message(fd, UA);
+    printf("Sent UA\n");
 }
 
 int llopenT(int fd, LinkLayer connectionParameters) {
-    //printf("Entered Tx \n");
+
+  unsigned char byte;
+  int stop = FALSE;
+
+  do {
+    send_message(fd, SETUP);
+    alarm(connectionParameters.timeout);
+    alarm_enabled = FALSE;
     RState state = START;
-    
-    unsigned char set[5] = {F, A_T, SETUP, A_T ^ SETUP, F};
-    unsigned char byte;
-    
-    while(alarm_enabled && alarm_count < connectionParameters.nRetransmissions) {
-        
-        if(write(fd, set, 5) == -1){
-            perror("Error writting (llopenT)\n");
-            exit(-1);
-        }
 
-        alarm(connectionParameters.timeout);
-        alarm_enabled = FALSE;
-
-        while(!alarm_enabled && state != STOP) {
-            if (read(fd, &byte, 1) == -1){
-                perror("Error reading a byte (llopenT)\n");
-                exit(-1);
-            }
-            printf("%d\n",state);
-            state_machine(connectionParameters, byte, &state);
-        }
+    while (!stop && !alarm_enabled) {
+      read(fd, &byte, 1);
+      state_machine_UA(&state, &byte, &stop);
     }
 
-    if (alarm_enabled) {
-       return FALSE;
-    }
-    printf("ESTOU NO llopenT!\n");
-    
+  } while (alarm_enabled && alarm_count < connectionParameters.nRetransmissions);
+
+  if (!alarm_enabled && alarm_count != connectionParameters.nRetransmissions) {
+    alarm_enabled = FALSE;
+    alarm_count = 0;
     return 1;
+  }
+
+  //printf("Estou aqui!!");
+
+  return -1;
 }
 
 int llopen(LinkLayer connectionParameters) {
@@ -143,12 +113,12 @@ int llopen(LinkLayer connectionParameters) {
     switch(connectionParameters.role) {
         case LlRx:
             printf("LlRx\n");
-            llopenR(fd,connectionParameters); // Lê a trama de controlo SET e envia a trama UA
+            llopenR(fd, connectionParameters); // Lê a trama de controlo SET e envia a trama UA
             break;
             
         case LlTx:
             printf("LlTx\n");
-            llopenT(fd,connectionParameters); // Envia trama de supervisão SET e recebe a trama UA
+            llopenT(fd, connectionParameters); // Envia trama de supervisão SET e recebe a trama UA
             break;
             
         default:
@@ -286,11 +256,11 @@ int llclose(int showStatistics) {
 
   // Lê a trama de controlo DISC, envia-a e recebe UA.
   if(role == LlRx) {
-    readControlMessage(DISC);
+    read_message_R(DISC);
     printf("Received DISC\n");
-    send_message(DISC);
+    send_message(fdR, DISC);
     printf("Sended DISC\n");
-    send_message(UA);
+    send_message(fdR, UA);
     printf("Received UA\n");
     printf("Terminated\n");
     
@@ -301,16 +271,16 @@ int llclose(int showStatistics) {
   }
   // Envia a trama de supervisão DISC, recebe-a e envia UA.
   else if(role == LlTx) {
-    send_message( DISC);
+    send_message(fdT, DISC);
     printf("Sended DISC\n");
     unsigned char CV;
 
     do {
-        CV = read_message();
+        CV = read_message_T();
     } while (CV != DISC);
 
     printf("Read DISC\n");
-    send_message(UA);
+    send_message(fdT, UA);
     printf("Sended UA final\n");
     printf("Writer terminated \n");
 
