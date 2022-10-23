@@ -1,10 +1,12 @@
 // Application layer protocol implementation
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <sys/stat.h>
 #include "application_layer.h"
 #include "link_layer.h"
 #include "string.h"
+#include "utils.h"
 #include "../include/alarm.h"
 #include <signal.h>
 #include <time.h>
@@ -42,13 +44,13 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
 
     int packet_size = 0;
     int buffSize = 0;
-    unsigned char *packet;
+    unsigned char *packet = NULL;
     off_t file_size = 0;
     off_t index = 0;
 
     printf("Message Size: %d\n", llread(packet));
-
-    //NFFS
+  
+  //----
   /*  int L2 = (int)packet[8];
     unsigned char *file_name = (unsigned char *)malloc(L2 + 1);
 
@@ -58,7 +60,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
 
     file_name[L2] = '\0'; */
 
-    //SFFS
+    //----
     file_size = (packet[3] << 24) | (packet[4] << 16) | (packet[5] << 8) | (packet[6]);
 
     unsigned char *msg = (unsigned char *)malloc(file_size);
@@ -69,16 +71,16 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
       if (buffSize == 0) {
         continue;
       }  
-      if (msg_ended(&packet, final_msg, packet_size, buffSize)) {
+      if (msg_ended(packet, &final_msg, packet_size, buffSize)) {
         printf("Final message received\n");
         break;
       }
 
       int size_without_header = 0;
 
-      final_msg = remove_header(final_msg, buffSize, &size_without_header);
+      remove_header(&final_msg, buffSize, &size_without_header); // Remove o header do application level dos frames I
 
-      memcpy(msg + index, final_msg, size_without_header);
+      memcpy(msg + index, &final_msg, size_without_header);
       index += size_without_header;
     }
 
@@ -143,31 +145,31 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
 
     int filename_size = strlen(filename);
     unsigned char *file_name = (unsigned char*)malloc(filename_size);
-    unsigned char *packet = control_packetI(START2, file_size, file_name, filename_size, &packetI_size);
+    unsigned char *packet = control_packetI(START2, file_size, file_name, filename_size, &packetI_size); // Cria os packets de controlo START
 
     llwrite(packet, packetI_size);
    
     printf("Frame START sent.\n");
 
-    int packet_size = 100; //100 bytes in each packet
+    int packet_size = 100; //100 em cada packet
     srand(time(NULL));
 
     while(index < file_size && packet_size == 100) {
 
-      unsigned char *packet = parse_message(msg, &index, &packet_size, file_size);
+      unsigned char *packet = parse_message(msg, &index, &packet_size, file_size); // Mensagem dividida em packets
       printf("Packet %d sent\n", nFrames);
 
       int header_size = packet_size;
-      unsigned char *header_msg = header_app_level(packet, file_size, &header_size);
+      unsigned char *header_msg = header_app_level(packet, file_size, &header_size); // Adiciona o header ao packet recebido
       
-      printf("Send Message\n");
       if (llwrite(header_msg, header_size) == -1) {
         perror("Alarm limit reached\n");
         exit(-1);
       }
     }
+    printf("Message sended\n");
 
-    unsigned char *end = control_packetI(END2, file_size, file_name, filename_size, &packetI_size);
+    unsigned char *end = control_packetI(END2, file_size, file_name, filename_size, &packetI_size); // Cria os packets de controlo END
     llwrite(end,packetI_size);
     printf("Frame END sent\n");
 

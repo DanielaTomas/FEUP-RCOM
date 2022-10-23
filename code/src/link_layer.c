@@ -30,7 +30,6 @@ int llopenR(int fd, LinkLayer connectionParameters) {
     //printf("llopenR\n");
     RState state = START;
     unsigned char byte;
-    //unsigned char frame[5];
     //int frame_size = 0;
 
     while(state != STOP) {
@@ -53,6 +52,9 @@ int llopenR(int fd, LinkLayer connectionParameters) {
         perror("Error writting (llopenR)\n");
         exit(-1);
     }
+
+    printf("ESTOU NO LLOPENR!\n");
+    
     return 1; 
 }
 
@@ -83,13 +85,14 @@ int llopenT(int fd, LinkLayer connectionParameters) {
         }
     }
 
-    printf("ESTOU AQUI!!");
+    printf("ESTOU AQUI NO LLOPENT!!\n");
     
     return 1;
 }
 
 int llopen(LinkLayer connectionParameters) {
-    
+
+    //Open serial port device for reading and writing and not as controlling tty because we don't want to get killed if linenoise sends CTRL-C.
     int fd;
 
     if(connectionParameters.role == LlRx) {
@@ -101,23 +104,24 @@ int llopen(LinkLayer connectionParameters) {
         fd = fdT;
     }
   
-
     if (fd < 0) {
         perror(connectionParameters.serialPort);
         exit(-1);
     }
-
+    
+    // Save current port settings
     if (tcgetattr(fd, &oldtio) == -1) {
         perror("Error getting the port settings.\n");
         exit(-1);
     }
 
+    bzero(&newtio, sizeof(newtio));
     newtio.c_cflag = connectionParameters.baudRate | CS8 | CLOCAL | CREAD;
     newtio.c_iflag = IGNPAR;
     newtio.c_oflag = 0;
     newtio.c_lflag = 0;
-    newtio.c_cc[VTIME] = 0;
-    newtio.c_cc[VMIN] = 1;
+    newtio.c_cc[VTIME] = 0; // Inter-character timer unused
+    newtio.c_cc[VMIN] = 1; // Blocking read until 1 char received
 
     if (tcflush(fd, TCIOFLUSH) == -1) {
         perror("Error flushing the data.\n");
@@ -135,12 +139,12 @@ int llopen(LinkLayer connectionParameters) {
     switch(connectionParameters.role) {
         case LlRx:
             printf("LlRx\n");
-            llopenR(fd,connectionParameters);     
+            llopenR(fd,connectionParameters); // Lê a trama de controlo SET e envia a trama UA
             break;
             
         case LlTx:
             printf("LlTx\n");
-            llopenT(fd,connectionParameters);
+            llopenT(fd,connectionParameters); // Envia trama de supervisão SET e recebe a trama UA
             break;
             
         default:
@@ -156,7 +160,7 @@ int llopen(LinkLayer connectionParameters) {
 int llwrite(const unsigned char *buf, int bufSize) {
 
     if(bufSize < 0) {
-        printf("%d",bufSize);
+        printf("%d\n",bufSize);
         return -1;
     }
 
@@ -240,8 +244,8 @@ int llwrite(const unsigned char *buf, int bufSize) {
 ////////////////////////////////////////////////
 // LLREAD
 ////////////////////////////////////////////////
+// Lê as tramas I e a seguir faz destuffing
 int llread(unsigned char *packet) {
-
   int size = 0;
   RState state = START; 
   frame_type = 0;
@@ -254,19 +258,20 @@ int llread(unsigned char *packet) {
       perror("Couldn't read (llread)\n");
       exit(-1);
     }
-    //printf("Byte %x\n",byte);
+    //printf("Byte: %x\n",byte);
     size = state_machine_R(&state, &reader, &keep_data, byte, &frame_type, size, packet);
-   
-    //printf("Packet Size: %d\n",*size);
-  }
 
+    //printf("Packet Size: %d\n",size);
+  }
+  
+  packet = (unsigned char *)realloc(packet, size - 1);
+  size -= 1;
   if(keep_data && frame_type ==  waited) {
     waited ^= 1;
   }
   else {
     size = 0;
   }
-
   return size;
 }
 
@@ -275,6 +280,7 @@ int llread(unsigned char *packet) {
 ////////////////////////////////////////////////
 int llclose(int showStatistics) {
 
+  // Lê a trama de controlo DISC, envia-a e recebe UA.
   if(role == LlRx) {
     readControlMessage(DISC);
     printf("Received DISC\n");
@@ -289,20 +295,19 @@ int llclose(int showStatistics) {
         exit(-1);
     }
   }
-
+  // Envia a trama de supervisão DISC, recebe-a e envia UA.
   else if(role == LlTx) {
     send_message( DISC);
-    printf("Mandou DISC\n");
+    printf("Sended DISC\n");
     unsigned char CV;
-    CV = read_message();
 
-    while (CV != DISC) {
+    do {
         CV = read_message();
-    }
+    } while (CV != DISC);
 
-    printf("Leu DISC\n");
+    printf("Read DISC\n");
     send_message(UA);
-    printf("Mandou UA final\n");
+    printf("Sended UA final\n");
     printf("Writer terminated \n");
 
     if (tcsetattr(fdT, TCSANOW, &oldtio) == -1) {

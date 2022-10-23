@@ -162,7 +162,7 @@ int send_message_W(unsigned char* frame_msg, int frame_size, int frame_type) {
         copy[3] = msg;
         //error_flag = 1;
 
-        printf("BCC1 Modified\n");
+        printf("BCC1 modified\n");
       }
       //free(msg);
 
@@ -172,7 +172,7 @@ int send_message_W(unsigned char* frame_msg, int frame_size, int frame_type) {
           unsigned char random_msg = (unsigned char)('A' + (rand() % 26));
           copy[i] = random_msg;
           
-          printf("BCC2 Modified\n");
+          printf("BCC2 modified\n");
       }
     
       bytesWritten = write(fdT, copy, frame_size);

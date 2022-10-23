@@ -62,9 +62,11 @@ typedef struct
 // Open a connection using the "port" parameters defined in struct linkLayer.
 // Return "1" on success or "-1" on error.
 int llopen(LinkLayer connectionParameters);
-int llopenR(int fd, LinkLayer connectionParameters);
-int llopenT(int fd, LinkLayer connectionParameters);
 
+// Lê a trama de controlo SET e envia a trama UA
+int llopenR(int fd, LinkLayer connectionParameters);
+// Envia trama de supervisão SET e recebe a trama UA
+int llopenT(int fd, LinkLayer connectionParameters);
 
 // Send data in buf with size bufSize.
 // Return number of chars written, or "-1" on error.

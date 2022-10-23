@@ -77,14 +77,14 @@ void state_machine(LinkLayer connectionParameters, unsigned char byte, RState* s
 int state_machine_R(RState *state, unsigned char* reader, int* keep_data, unsigned char byte, int* frame_type, int size, unsigned char *packet) {
  switch (*state) {
         case START:
-            printf("State 0\n");
+            //printf("State 0\n");
             if (byte == F) {
                *state = FLAG_RCV;
             }
             break;
 
         case FLAG_RCV:
-              printf("State 1\n");
+            //printf("State 1\n");
             if (byte == A_T) {
               *state = A_RCV;
             }
@@ -94,7 +94,7 @@ int state_machine_R(RState *state, unsigned char* reader, int* keep_data, unsign
             break;
 
         case A_RCV:
-            printf("State 2\n");
+            //printf("State 2\n");
             if(byte == CV0) {
               *frame_type = 0;
               *reader = byte;
@@ -111,7 +111,7 @@ int state_machine_R(RState *state, unsigned char* reader, int* keep_data, unsign
             break;
 
         case C_RCV:
-              printf("State 3\n");
+            //printf("State 3\n");
             if (byte == (A_T ^ *reader)) {
                 *state = BCC_OK;
             }
@@ -121,9 +121,8 @@ int state_machine_R(RState *state, unsigned char* reader, int* keep_data, unsign
             break;
 
         case BCC_OK:
-              printf("State 4\n");
+            //printf("State 4\n");
             if(byte == F) {
-              printf("FFFFF\n");
               if(verify_BCC2(packet, size)) {
                 if(*frame_type == 0) {
                   send_message(CV3);
@@ -131,7 +130,7 @@ int state_machine_R(RState *state, unsigned char* reader, int* keep_data, unsign
                 else {
                   send_message(CV2);
                 }
-                printf("Sended REJ, T:%d\n", *frame_type);
+                printf("Sended REJ");
                 *state = BREAK;
                 *keep_data = TRUE;
               }
@@ -142,21 +141,20 @@ int state_machine_R(RState *state, unsigned char* reader, int* keep_data, unsign
                   send_message(CV4);
                 *state = BREAK;
                 *keep_data = FALSE;
-                printf("Sended REJ, T: %d\n", *frame_type);
+                printf("Sended REJ");
               }
             }
             else if(byte == ESC) {
               *state = STOP;
             }
             else {
-              printf("ola\n");
               packet = (unsigned char *)realloc(packet,(++size));
               packet[size-1] = byte; 
             }
             break;
 
         case STOP: 
-            printf("State 5\n");
+            //printf("State 5\n");
             if(byte == ESC_F ) {
               packet = (unsigned char *)realloc(packet,(++size));
               packet[size-1] = F;
