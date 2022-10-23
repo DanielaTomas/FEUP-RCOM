@@ -19,13 +19,14 @@ extern int alarm_count;
 struct termios oldtio, newtio;
 LinkLayerRole role;
 int frame_type = 0;
-int fd;
+int fdT;
+int fdR;
 int waited = 0;
 ////////////////////////////////////////////////
 // LLOPEN
 ////////////////////////////////////////////////
 
-int llopenR(LinkLayer connectionParameters) {
+int llopenR(int fd, LinkLayer connectionParameters) {
     //printf("llopenR\n");
     RState state = START;
     unsigned char byte;
@@ -55,7 +56,7 @@ int llopenR(LinkLayer connectionParameters) {
     return 1; 
 }
 
-int llopenT(LinkLayer connectionParameters) {
+int llopenT(int fd, LinkLayer connectionParameters) {
     //printf("Entered Tx \n");
     RState state = START;
     
@@ -89,7 +90,16 @@ int llopenT(LinkLayer connectionParameters) {
 
 int llopen(LinkLayer connectionParameters) {
     
-    fd = open(connectionParameters.serialPort, O_RDWR | O_NOCTTY);
+    int fd;
+
+    if(connectionParameters.role == LlRx) {
+        fdR = open(connectionParameters.serialPort, O_RDWR | O_NOCTTY);
+        fd = fdR;
+    }
+    else {
+        fdT = open(connectionParameters.serialPort, O_RDWR | O_NOCTTY);
+        fd = fdT;
+    }
   
 
     if (fd < 0) {
@@ -125,12 +135,12 @@ int llopen(LinkLayer connectionParameters) {
     switch(connectionParameters.role) {
         case LlRx:
             printf("LlRx\n");
-            llopenR(connectionParameters);     
+            llopenR(fd,connectionParameters);     
             break;
             
         case LlTx:
             printf("LlTx\n");
-            llopenT(connectionParameters);
+            llopenT(fd,connectionParameters);
             break;
             
         default:
@@ -240,7 +250,7 @@ int llread(unsigned char *packet) {
   unsigned char byte;
 
   while(state != BREAK) {
-    if(read(fd,&byte,1) == -1) {
+    if(read(fdR,&byte,1) == -1) {
       perror("Couldn't read (llread)\n");
       exit(-1);
     }
@@ -274,7 +284,7 @@ int llclose(int showStatistics) {
     printf("Received UA\n");
     printf("Terminated\n");
     
-    if (tcsetattr(fd, TCSANOW, &oldtio) == -1) {
+    if (tcsetattr(fdR, TCSANOW, &oldtio) == -1) {
         perror("tcsetattr");
         exit(-1);
     }
@@ -295,7 +305,7 @@ int llclose(int showStatistics) {
     printf("Mandou UA final\n");
     printf("Writer terminated \n");
 
-    if (tcsetattr(fd, TCSANOW, &oldtio) == -1) {
+    if (tcsetattr(fdT, TCSANOW, &oldtio) == -1) {
         perror("tcsetattr");
         exit(-1);
     }

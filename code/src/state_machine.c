@@ -13,7 +13,8 @@
 #include <termios.h>
 #include <string.h>
 
-extern int fd;
+extern int fdR;
+extern int fdT;
 extern int alarm_enabled;
 
 void state_machine(LinkLayer connectionParameters, unsigned char byte, RState* state) {
@@ -182,7 +183,7 @@ unsigned char read_message() {
   unsigned char byte1, byte2;
 
   while (!alarm_enabled && state != STOP) {
-    read(fd, &byte1, 1);
+    read(fdR, &byte1, 1);
     switch (state){
     case START:
       if (byte1 == F) {
@@ -249,7 +250,7 @@ void readControlMessage(unsigned char CV){
   unsigned char byte;
   RState state = START;
   while(state != STOP) {
-    read(fd,&byte,1);
+    read(fdR,&byte,1);
     switch (state){
     case START:
       if(byte == F)

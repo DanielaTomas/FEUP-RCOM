@@ -13,7 +13,8 @@
 #include <termios.h>
 #include <string.h>
 
-extern int fd;
+extern int fdR;
+extern int fdT;
 extern int alarm_enabled;
 extern int alarm_count;
 unsigned char error_flag = 0;
@@ -82,7 +83,7 @@ void send_message(unsigned char CV) {
   packet[3] = packet[1] ^ packet[2];
   packet[4] = F;
   
-  if(write(fd, packet, 5) == -1) {
+  if(write(fdT, packet, 5) == -1) {
     printf("Couldn't write (send_message)\n");
   }
 }
@@ -174,7 +175,7 @@ int send_message_W(unsigned char* frame_msg, int frame_size, int frame_type) {
           printf("BCC2 Modified\n");
       }
     
-      bytesWritten = write(fd, copy, frame_size);
+      bytesWritten = write(fdT, copy, frame_size);
 
       setAlarmEnabled(FALSE);
       alarm(4);

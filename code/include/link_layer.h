@@ -62,8 +62,8 @@ typedef struct
 // Open a connection using the "port" parameters defined in struct linkLayer.
 // Return "1" on success or "-1" on error.
 int llopen(LinkLayer connectionParameters);
-int llopenR(LinkLayer connectionParameters);
-int llopenT(LinkLayer connectionParameters);
+int llopenR(int fd, LinkLayer connectionParameters);
+int llopenT(int fd, LinkLayer connectionParameters);
 
 
 // Send data in buf with size bufSize.
@@ -80,7 +80,5 @@ int llread(unsigned char *packet);
 int llclose(int showStatistics);
 
 typedef enum {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, STOP, BREAK} RState;
-int llopenR(LinkLayer connectionParameters);
-int llopenT(LinkLayer connectionParameters);
 
 #endif // _LINK_LAYER_H_
