@@ -17,7 +17,7 @@ extern int fdR;
 extern int fdT;
 extern int alarm_enabled;
 extern int alarm_count;
-unsigned char error_flag = 0;
+//unsigned char error_flag = 0;
 unsigned char msgNum = 0;
 int nFrames = 0;
 
@@ -160,7 +160,7 @@ int send_message_W(unsigned char* frame_msg, int frame_size, int frame_type) {
         } while(msg == copy[3]);
 
         copy[3] = msg;
-            error_flag = 1;
+        //error_flag = 1;
 
         printf("BCC1 Modified\n");
       }

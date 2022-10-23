@@ -9,7 +9,8 @@
 #include <signal.h>
 #include <time.h>
 
-extern int fd;
+extern int fdR;
+extern int fdT;
 extern int nFrames;
 
 void applicationLayer(const char *serialPort, const char *role, int baudRate,
@@ -48,14 +49,14 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
     printf("Message Size: %d\n", llread(packet));
 
     //NFFS
-    int L2 = (int)packet[8];
+  /*  int L2 = (int)packet[8];
     unsigned char *file_name = (unsigned char *)malloc(L2 + 1);
 
     for (int i = 0; i < L2; i++) {
       file_name[i] = packet[9 + i];
     }
 
-    file_name[L2] = '\0'; 
+    file_name[L2] = '\0'; */
 
     //SFFS
     file_size = (packet[3] << 24) | (packet[4] << 16) | (packet[5] << 8) | (packet[6]);
@@ -87,8 +88,8 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
     }
     printf("\n");
 
-    FILE *file = fopen((char*)file_name,"wb+"); 
-    //FILE *file = fopen((char*)filename,"wb+"); 
+    //FILE *file = fopen((char*)file_name,"wb+"); 
+    FILE *file = fopen((char*)filename,"wb+"); 
 
    /* fseek(file, 0, SEEK_END);
     int fileSize = (int)ftell(file);
@@ -180,7 +181,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
 
     sleep(1);
 
-    close(fd);
+    close(fdT);
   }
 } 
 
