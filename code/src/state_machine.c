@@ -181,6 +181,7 @@ int state_machine_R(RState *state, unsigned char* reader, int* keep_data, unsign
     return size;
 }
 
+// Espera ler o DISC
 unsigned char read_message_T() {
   RState state = START;
   unsigned char byte1, byte2;
@@ -249,7 +250,8 @@ unsigned char read_message_T() {
   return 0xFF;
 }
 
-void read_message_R(unsigned char CV){
+//Setup da trama de supervisão
+void send_message_R(unsigned char CV){
   unsigned char byte;
   RState state = START;
   while(state != STOP) {

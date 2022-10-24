@@ -15,7 +15,7 @@ unsigned char read_message_T();
 /*
   Verifica se o frame recebido e o desejado
 */
-void read_message_R(unsigned char CV);
+void send_message_R(unsigned char CV);
 
 void state_machine_UA(RState *state, unsigned char *byte, int *stop);
 

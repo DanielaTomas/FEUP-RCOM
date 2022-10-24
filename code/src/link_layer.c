@@ -15,23 +15,23 @@
 #include <termios.h>
 #include <string.h>
 
-extern int alarm_count;
+extern int alarm_count; // contador de alarmes
 extern int alarm_enabled;
 struct termios oldtio, newtio;
 LinkLayerRole role;
-int frame_type = 0;
+int frame_type = 0; // número sequencial da trama
 int fdT;
 int fdR;
-int waited = 0;
+int waited = 0; // trama esperada, para tratamento de duplicados
 
 ////////////////////////////////////////////////
 // LLOPEN
 ////////////////////////////////////////////////
 
 void llopenR(int fd, LinkLayer connectionParameters) {
-    read_message_R(SETUP);
+    send_message_R(SETUP); // envia a trama de supervisão
     printf("Sent SET\n");
-    send_message(fd, UA);
+    send_message(fd, UA); 
     printf("Sent UA\n");
 }
 
@@ -41,14 +41,16 @@ int llopenT(int fd, LinkLayer connectionParameters) {
   int stop = FALSE;
 
   do {
+    // envia a trama de supervisão
     send_message(fd, SETUP);
     alarm(connectionParameters.timeout);
     alarm_enabled = FALSE;
     RState state = START;
 
+    //recebe a trama UA
     while (!stop && !alarm_enabled) {
       read(fd, &byte, 1);
-      state_machine_UA(&state, &byte, &stop);
+      state_machine_UA(&state, &byte, &stop); 
     }
 
   } while (alarm_enabled && alarm_count < connectionParameters.nRetransmissions);
@@ -131,6 +133,7 @@ int llopen(LinkLayer connectionParameters) {
 ////////////////////////////////////////////////
 // LLWRITE
 ////////////////////////////////////////////////
+// reponsavel pelo envio das trama e pelo stuffing das mesmas
 int llwrite(const unsigned char *buf, int bufSize) {
 
     if(bufSize < 0) {
