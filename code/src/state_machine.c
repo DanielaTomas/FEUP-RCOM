@@ -128,7 +128,7 @@ int state_machine_R(RState *state, unsigned char* reader, int* keep_data, unsign
             printf("State 4\n");
             if(byte == F) {
               if(verify_BCC2(packet, size)) {
-                printf("bcc2 entrei \n");
+                //printf("bcc2 entrei \n");
                 if(*frame_type == 0) {
                   send_message(fdR, CV3);
                 }

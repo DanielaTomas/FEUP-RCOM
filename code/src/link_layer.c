@@ -259,7 +259,7 @@ int llclose(int showStatistics) {
 
   // Lê a trama de controlo DISC, envia-a e recebe UA.
   if(role == LlRx) {
-    read_message_R(DISC);
+    send_message_R(DISC);
     printf("Received DISC\n");
     send_message(fdR, DISC);
     printf("Sended DISC\n");

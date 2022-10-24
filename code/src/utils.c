@@ -122,7 +122,7 @@ int verify_BCC2(unsigned char *packet, int size) {
   
   for(int itr = 1; itr < size-1; itr++) {
     BCC2 ^= packet[itr];
-    //printf("BCC2 = %x, packet[%d] = %x\n",BCC2, itr,packet[itr]);
+    printf("BCC2 = %x, packet[%d] = %x\n",BCC2, itr,packet[itr]);
   }
   
   if (BCC2 != packet[size-1]) {
