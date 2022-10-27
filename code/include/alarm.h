@@ -6,4 +6,7 @@
 void alarmHandler(int signal);
 int setAlarm(int timeout);
 
+extern int alarm_count;
+extern int alarm_enabled;
+
 #endif // _ALARM_H_
