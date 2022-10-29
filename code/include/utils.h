@@ -26,7 +26,7 @@
 extern int alarm_count;
 extern int alarm_enabled;
 extern int disc;
-extern unsigned char buf[MAX_PCK_SIZE];
+extern unsigned char buffer[MAX_PCK_SIZE];
 extern int fd;
 
 int llopenR(int fd);
@@ -36,5 +36,11 @@ int llopenT(int fd, int nRetransmissions, int timeout);
 void create_command_frame(unsigned char* buf, unsigned char control_value, unsigned char address);
 
 int control_handler(ControlV cv, int R_S);
+
+int write_cycle(int size);
+
+int stuffing(const unsigned char *buf, int bufSize, unsigned char* dest, unsigned char *bcc);
+
+int header_frame(unsigned char* framebuf, const unsigned char* data, unsigned int data_size, unsigned char address, unsigned char control_value);
 
 #endif // _UTILS_H_

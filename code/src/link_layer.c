@@ -15,9 +15,8 @@
 struct termios oldtio;
 struct termios newtio;
 
-unsigned char buf[128], *giant_buf = NULL;
+unsigned char sflag, buffer[128], *giant_buf = NULL;
 unsigned long giant_buf_size = 0;
-unsigned char data_s_flag = 0;
 
 int fd;
 int disc = FALSE;
@@ -82,8 +81,80 @@ int llopen(LinkLayer connectionParameters) {
 ////////////////////////////////////////////////
 // LLWRITE
 ////////////////////////////////////////////////
-int llwrite(const unsigned char *buf, int bufferSize) {
+int llwrite(const unsigned char *buf, int bufSize) {
 
+    if(giant_buf_size < bufSize*2 + 10) {
+        giant_buf = (giant_buf_size == 0) ? malloc(bufSize*2 + 10) : realloc(giant_buf, bufSize*2+10);
+    }
+
+    int fsize = header_frame(giant_buf, buf, bufSize, A_T, control_handler(CVDATA, sflag));
+    
+    int bytes_written = write_cycle(fsize);
+    
+    int isReceivedP = FALSE;
+    int nRetransmissions = 0;
+    data = NULL;
+    
+    alarm_enabled = TRUE;
+    alarm(cp.timeout);
+
+    while(isReceivedP == FALSE){
+
+        if(!alarm_enabled) {
+            alarm_enabled = TRUE;
+            alarm(cp.timeout);
+
+            if(nRetransmissions > 0) {
+                printf("Time-out\n");
+                return -1;
+            }
+            else if(cp.nRetransmissions == nRetransmissions){
+                printf("Number of retransmissions allowed exceeded\n");
+                return -1;
+            }
+            
+            bytes_written += write_cycle(fsize);
+            
+            nRetransmissions++;
+        }
+
+        int bytes_read;
+        
+        if((bytes_read = read(fd, buffer, MAX_PCK_SIZE)) == -1) {
+            printf("Couldn't read (llwrite)\n");
+            return -1;
+        }
+        
+        int j = 0;
+        do{
+            state_machine(buffer[j]);
+            if(fstate == END){
+                if(address == A_T && (control_value == control_handler(CVRR, FALSE) || control_value == control_handler(CVRR, TRUE))){
+                    isReceivedP = TRUE;
+                    if(control_value == control_handler(CVRR, sflag)) {
+                        printf("Requesting next packet...\n");
+                    }
+                }
+                if(address == A_T && control_value == control_handler(CVREJ, sflag)) {
+                    printf("Requesting retransmission...\n");
+		            nRetransmissions = 0;
+                }
+            }
+            j++;
+        }while(j < bytes_read && isReceivedP == FALSE && alarm_enabled);
+        
+    }
+    
+    if(sflag) {
+        sflag = FALSE;
+    } 
+    else {
+        sflag = TRUE;
+    }
+    
+    //printf("%d chars written\n",bytes_written);
+
+    return bytes_written;
 }
 
 ////////////////////////////////////////////////

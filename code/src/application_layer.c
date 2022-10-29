@@ -11,10 +11,6 @@
 #include <signal.h>
 #include <time.h>
 
-extern int fdR;
-extern int fdT;
-extern int nFrames;
-
 void applicationLayer(const char *serialPort, const char *role, int baudRate,
                       int nTries, int timeout, const char *filename) {
 
@@ -48,7 +44,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
 
   }
   else if(connectionParameters.role == LlTx) {
-
+    
   }
   */
 } 

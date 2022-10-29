@@ -19,9 +19,8 @@ typedef struct
     int timeout;
 } LinkLayer;
 
-extern unsigned char buf[128], *giant_buf;
+extern unsigned char buffer[128], *giant_buf;
 extern unsigned long giant_buf_size;
-extern unsigned char data_s_flag;
 
 typedef enum {CVRR, CVREJ, CVDATA} ControlV;
 extern ControlV cv;
