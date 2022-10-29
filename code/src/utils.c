@@ -7,9 +7,6 @@
 #include <stdio.h>
 #include <unistd.h>
 
-
-
-
 int llopenR(int fd) {
     fstate = START;
     alarm_count = 0;
@@ -17,7 +14,7 @@ int llopenR(int fd) {
 
     while(set == FALSE) {
             
-        if((byte = read(fd,buf,MAX_PACKET_SIZE)) == -1) {
+        if((byte = read(fd,buf,MAX_PCK_SIZE)) == -1) {
             perror("Couldn't read (llopen)\n");
             exit(-1);
         }
@@ -42,9 +39,9 @@ int llopenR(int fd) {
         printf("Set Received\n");
     }
 
-    int size = buildCommandFrame(buf,A_T,CVUA);
+    create_command_frame(buf,A_T,CVSET);;
     
-    write(fd,buf,size); //sends UA reply.
+    write(fd,buf,5);
 
     printf("UA Sent\n");
 
@@ -64,14 +61,14 @@ int llopenT(int fd, int nRetransmissions, int timeout) {
                 printf("Time-out\n");
             }
 
-            int size = buildCommandFrame(buf,A_T,CVSET);
+            create_command_frame(buf,A_T,CVSET);
             
             printf("SET sent\n");
-            write(fd,buf,size);
+            write(fd,buf,5);
             
             while(alarm_enabled && ua == FALSE){
 
-                if((byte = read(fd,buf,MAX_PACKET_SIZE)) == -1) {
+                if((byte = read(fd,buf,MAX_PCK_SIZE)) == -1) {
                     printf("Couldn't read (llopen)\n");
                     return -1;
                 }
@@ -96,4 +93,45 @@ int llopenT(int fd, int nRetransmissions, int timeout) {
         return -1;
 }
 
+void create_command_frame(unsigned char* buf, unsigned char control_value, unsigned char address){
+
+    buf[0] = F;
+    buf[1] = address;
+    buf[2] = control_value;
+    buf[3] = address ^ control_value;
+    buf[4] = F;
+
+}
+
+int control_handler(ControlV cv, int R_S) {
+    switch (cv) {
+        case CVRR:
+            if(R_S % 2 != 0) {
+                return 0b10000101;
+            }
+            else {
+                return 0b00000101;
+            }
+            break;
+        case CVREJ:
+            if(R_S % 2 != 0){
+                return 0b10000001;
+            }
+            else {
+                return 0b00000001;
+            }
+            break;
+        case CVDATA:
+            if(R_S % 2 != 0) {
+                return 0b01000000;
+            }
+            else {
+                return 0b00000000;
+            }
+            break;
+        default:
+            break;
+    }
+    return -1;
+}
 

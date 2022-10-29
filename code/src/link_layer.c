@@ -79,7 +79,10 @@ int llopen(LinkLayer connectionParameters) {
     return -1;  
 }
 
-int llwrite(const unsigned char *buffer, int bufferSize) {
+////////////////////////////////////////////////
+// LLWRITE
+////////////////////////////////////////////////
+int llwrite(const unsigned char *buf, int bufferSize) {
 
 }
 

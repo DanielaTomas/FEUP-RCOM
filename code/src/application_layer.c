@@ -36,5 +36,20 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
   connectionParameters.nRetransmissions = nTries;
   connectionParameters.timeout = timeout;
   
+  printf("\n\t---- LLOPEN ----\n\n");
+
+  if(llopen(connectionParameters) == -1) {
+      perror("Error opening a connection using the port parameters");
+      exit(-1);
+  }
+
+  /*
+  if(connectionParameters.role == LlRx) {
+
+  }
+  else if(connectionParameters.role == LlTx) {
+
+  }
+  */
 } 
 
