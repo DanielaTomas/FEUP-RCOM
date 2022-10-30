@@ -11,6 +11,8 @@
 #include <signal.h>
 #include <time.h>
 
+unsigned char packet[PCK_SIZE];
+
 void applicationLayer(const char *serialPort, const char *role, int baudRate,
                       int nTries, int timeout, const char *filename) {
 
@@ -41,6 +43,9 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
 
   /*
   if(connectionParameters.role == LlRx) {
+
+    printf("\n\t---- LLREAD ----\n\n");
+    int bytes = llread(packet);
 
   }
   else if(connectionParameters.role == LlTx) {

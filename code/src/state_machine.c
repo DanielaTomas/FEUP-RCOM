@@ -30,9 +30,10 @@ void state_machine(unsigned char byte){
                 if(byte == A_T || byte == A_R){
                     fstate = ADDRESS;
                     address = byte;
-                    break;
                 }
-                fstate = START;
+                else {
+                    fstate = START;
+                }
             }
             break;
 
@@ -163,9 +164,6 @@ void state_machine(unsigned char byte){
             else {
                 fstate = START;
             }
-            break;
-        
-        default:
             break;
     }
 }

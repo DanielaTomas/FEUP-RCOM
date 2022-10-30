@@ -160,8 +160,66 @@ int llwrite(const unsigned char *buf, int bufSize) {
 ////////////////////////////////////////////////
 // LLREAD
 ////////////////////////////////////////////////
-int llread(unsigned char *packet)
-{
+int llread(unsigned char *packet) {
+    
+    if(giant_buf_size < MAX_PCK_SIZE){
+        giant_buf = (giant_buf_size == 0)? malloc(MAX_PCK_SIZE): realloc(giant_buf, MAX_PCK_SIZE);
+    }
+
+    int isReceivedP = FALSE;
+    data = packet;
+    int bytes_read;
+    
+    while(isReceivedP == FALSE){
+        if((bytes_read = read(fd, giant_buf, MAX_PCK_SIZE)) == -1) {
+            printf("Couldn't read (llread)\n");
+            return -1;
+        }
+        int i = 0;
+        do {
+            state_machine(giant_buf[i]);
+
+            if(address == A_T) {
+                if(fstate == REJECT){
+                    create_command_frame(buffer,((control_value == control_handler(CVDATA, FALSE)) ? control_handler(CVREJ, FALSE):control_handler(CVREJ,TRUE)),A_T);
+                    write(fd, buffer, 5);
+                    printf("REJ sent\n");
+                }
+                else if(fstate == END) {
+                    if(control_value == CVSET){
+                        create_command_frame(buffer, CVUA, A_T);
+                        write(fd, buffer, 5);
+                        printf("UA sent\n");
+                    }
+                    else if(control_value == control_handler(CVDATA, sflag)){
+                        sflag = (sflag)? FALSE : TRUE;
+                        create_command_frame(buffer, control_handler(CVRR, sflag), A_T);
+                        write(fd, buffer, 5);
+                        printf("RR %i sent\n", sflag);
+                        return size;
+                    }
+                    else {
+                        create_command_frame(buffer,control_handler(CVRR, sflag), A_T);
+                        write(fd, buffer, 5);
+                        printf("RR %i sent requesting retransmission\n",sflag);
+                    }
+                }
+            }
+
+            if(control_value == CVDISC) {
+                disc = TRUE;
+                create_command_frame(buffer, (control_value == control_handler(CVDATA, FALSE) ? control_handler(CVREJ, FALSE):control_handler(CVREJ, TRUE)), A_T);
+                write(fd, buffer, 5);
+                printf("DISC received\n");
+                return -1;
+                break;
+            }
+
+            i++;
+
+        }while(i < bytes_read && !isReceivedP);
+    }
+    return -1;
 }
 
 ////////////////////////////////////////////////
