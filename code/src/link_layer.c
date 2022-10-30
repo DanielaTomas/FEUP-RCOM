@@ -225,6 +225,117 @@ int llread(unsigned char *packet) {
 ////////////////////////////////////////////////
 // LLCLOSE
 ////////////////////////////////////////////////
-int llclose(int showStatistics)
-{
+int llclose(int showStatistics) {
+    signal(SIGALRM, alarmHandler);
+
+    if(giant_buf_size > 0) {
+        free(giant_buf);
+    }
+
+    if(cp.role == LlRx) {
+        int bytes_read;
+
+        while(disc == FALSE){
+            if((bytes_read = read(fd, buffer, MAX_PCK_SIZE)) == -1) {
+                printf("Couldn't read (llclose)\n");
+                return -1;
+            }
+            int i = 0;
+            do{
+                state_machine(buffer[i]);
+                if(fstate == END && address == A_T && control_value == CVDISC) {
+                    disc = TRUE;
+                }
+                i++;
+            }while(i < bytes_read && disc == FALSE);
+        }
+        if(disc == TRUE) {
+            printf("DISC received\n");
+        }
+
+        create_command_frame(buffer, CVDISC, A_T);
+
+        if(write(fd, buffer, 5) == -1) {
+            printf("Couldn't write (llclose)\n");
+            return -1;
+        }
+
+        printf("DISC sent\n");
+
+        int ua = FALSE;
+
+        while(ua == FALSE) {
+            if((bytes_read = read(fd, buffer, MAX_PCK_SIZE)) == -1) {
+                printf("Couldn't read (llclose)");
+                return -1;
+            }
+            int i = 0;
+            do{
+                state_machine(buffer[i]);
+                if(fstate == END && address == A_T && control_value == CVUA) {
+                    ua = TRUE;
+                }
+                i++;
+            }while(i < bytes_read && ua == FALSE);
+        }
+        if(ua == TRUE) {
+            printf("UA received\n");
+        }
+    }
+    else if(cp.role == LlTx) {
+        int bytes_read, isDisc = FALSE;
+        alarm_count = 0;
+
+        while(alarm_count < cp.nRetransmissions && isDisc == FALSE){
+            alarm(cp.timeout);
+            alarm_enabled = TRUE;
+
+            if(alarm_count > 0) {
+                printf("Time-out.\n");
+                return -1;
+            }
+
+            create_command_frame(buffer, CVDISC, A_T);
+            printf("DISC sent\n");
+
+            if(write(fd, buffer, 5) == -1) {
+                printf("Couldn't write (llclose)\n");
+                return -1;
+            }
+
+            while(alarm_enabled && isDisc == FALSE){
+                if((bytes_read = read(fd, buffer, MAX_PCK_SIZE)) == -1) {
+                    printf("Couldn't read (llclose)\n");
+                    return -1;
+                }
+                int i = 0;
+                do {
+                    state_machine(buffer[i]);
+                    if(fstate == END && address == A_T && control_value == CVDISC) {
+                        isDisc = TRUE;
+                    }
+                    if(fstate == END && address == A_T && (control_value == control_handler(CVRR, FALSE) || control_value == control_handler(CVRR, TRUE) || control_value == control_handler(CVREJ,FALSE) || control_value == control_handler(CVREJ,TRUE))){
+                        alarm_count = 0;
+                    }
+                    i++;
+                }while(i < bytes_read && isDisc == FALSE);
+            }
+        }
+        if(isDisc == TRUE) { 
+            printf("DISC received\n");
+            create_command_frame(buffer, CVUA, A_T);
+            write(fd, buffer, 5);
+            printf("UA sent\n");
+            sleep(1);
+        }
+
+    }
+
+    if (tcsetattr(fd, TCSANOW, &oldtio) == -1) {
+        printf("tcsetattr\n");
+        return -1;
+    }
+
+    close(fd);
+    return 1;
 }

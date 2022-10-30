@@ -196,3 +196,12 @@ int write_cycle(int size) {
     return i;
 }
 
+int tlv(unsigned char *address, int* type, int* length, int** value){
+    
+    *type = address[0];
+    *length = address[1];
+    *value = (int*)(address + 2);
+
+    return 2 + *length;
+}
+

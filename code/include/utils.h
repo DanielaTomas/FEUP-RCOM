@@ -43,4 +43,6 @@ int stuffing(const unsigned char *buf, int bufSize, unsigned char* dest, unsigne
 
 int header_frame(unsigned char* framebuf, const unsigned char* data, unsigned int data_size, unsigned char address, unsigned char control_value);
 
+int tlv(unsigned char *address, int* type, int* length, int** value);
+
 #endif // _UTILS_H_
