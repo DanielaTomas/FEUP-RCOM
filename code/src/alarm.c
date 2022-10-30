@@ -1,8 +1,8 @@
 #include <unistd.h>
 #include <signal.h>
 #include <stdio.h>
-#include "../include/link_layer.h"
-#include "../include/alarm.h"
+#include "link_layer.h"
+#include "alarm.h"
 
 int alarm_enabled = FALSE;
 int alarm_count = 0;

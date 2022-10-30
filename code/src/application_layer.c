@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
-unsigned char packet[PCK_SIZE + 30];
+unsigned char packet[PCK_SIZE];
 
 void applicationLayer(const char *serialPort, const char *role, int baudRate, int nTries, int timeout, const char *filename) {
 
@@ -41,8 +41,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
 
     if(connectionParameters.role == LlRx) {
 
-        int file_size = 0;
-        int size_rx = 0;
+        int file_size = 0, size_rx = 0;
 
         printf("\n\t---- LLREAD ----\n\n");
 

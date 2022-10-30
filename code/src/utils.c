@@ -1,4 +1,3 @@
-
 #include "utils.h"
 #include "state_machine.h"
 #include "link_layer.h"
@@ -14,7 +13,7 @@ int llopenR(int fd) {
 
     while(set == FALSE) {
             
-        if((byte = read(fd,buffer,MAX_PCK_SIZE)) == -1) {
+        if((byte = read(fd, buffer, MAX_PCK_SIZE)) == -1) {
             perror("Couldn't read (llopen)\n");
             exit(-1);
         }
@@ -39,9 +38,9 @@ int llopenR(int fd) {
         printf("Set Received\n");
     }
 
-    create_command_frame(buffer,A_T,CVSET);;
+    create_command_frame(buffer, CVUA, A_T);
     
-    write(fd,buffer,5);
+    write(fd, buffer, 5);
 
     printf("UA Sent\n");
 
@@ -61,14 +60,15 @@ int llopenT(int fd, int nRetransmissions, int timeout) {
                 printf("Time-out\n");
             }
 
-            create_command_frame(buffer,A_T,CVSET);
+            create_command_frame(buffer, CVSET, A_T);
             
             printf("SET sent\n");
-            write(fd,buffer,5);
+            
+            write(fd, buffer, 5);
             
             while(alarm_enabled && ua == FALSE){
 
-                if((byte = read(fd,buffer,MAX_PCK_SIZE)) == -1) {
+                if((byte = read(fd, buffer, MAX_PCK_SIZE)) == -1) {
                     printf("Couldn't read (llopen)\n");
                     return -1;
                 }
@@ -93,6 +93,32 @@ int llopenT(int fd, int nRetransmissions, int timeout) {
         return -1;
 }
 
+int stuffing(const unsigned char *buffer, int bufSize, unsigned char* oct, unsigned char *bcc){
+    int size = 0, i = 0;
+    do{
+        if(bcc != NULL) {
+            *bcc ^= buffer[i];
+        }
+        
+        if(buffer[i] == ESC) {
+            oct[size++] = ESC;
+            oct[size++] = ESC_E;
+            return size;
+        }
+        
+        else if(buffer[i] == F) {
+            oct[size++] = ESC;
+            oct[size++] = ESC_F;
+            return size;
+        }
+
+        oct[size++] = buffer[i];
+        i++;
+    }while(i < bufSize);
+
+    return size;
+}
+
 void create_command_frame(unsigned char* buf, unsigned char control_value, unsigned char address){
 
     buf[0] = F;
@@ -101,6 +127,50 @@ void create_command_frame(unsigned char* buf, unsigned char control_value, unsig
     buf[3] = address ^ control_value;
     buf[4] = F;
 
+}
+
+int header_frame(unsigned char* buf, const unsigned char* data,unsigned int data_size, unsigned char address, unsigned char control_value){
+
+    buf[0] = F;
+    buf[1] = address;
+    buf[2] = control_value;
+    buf[3] = address ^ control_value;
+
+    int new_size = 0, i = 0;
+    unsigned char bcc = 0;
+
+    do{
+        new_size += stuffing(data + i, 1, buf + new_size + HEADER_SIZE, &bcc);
+        i++;
+    }while(i < data_size);
+
+    new_size += stuffing(&bcc,1, buf + new_size + HEADER_SIZE, NULL);
+    buf[new_size + HEADER_SIZE] = F;
+    
+    new_size += 5;
+    
+    return new_size;
+}
+
+int tlv(unsigned char *address, int* type, int* length, int** value){
+    
+    *type = address[0];
+    *length = address[1];
+    *value = (int*)(address + 2);
+
+    return 2 + *length;
+}
+
+int write_cycle(int size) {
+    int i = 0, wr;
+    while(i < size) {
+        if((wr = write(fd, giant_buf + i, size - i)) == -1) {
+            perror("Couldn't write (llwrite).\n");
+            exit(-1);
+        }
+        i += wr;    
+    }
+    return i;
 }
 
 int control_handler(ControlV cv, int R_S) {
@@ -134,74 +204,3 @@ int control_handler(ControlV cv, int R_S) {
     }
     return -1;
 }
-
-int stuffing(const unsigned char *buffer, int bufSize, unsigned char* oct, unsigned char *bcc){
-    int size = 0, i = 0;
-    do{
-        if(bcc != NULL) {
-            *bcc ^= buffer[i];
-        }
-        
-        if(buffer[i] == ESC) {
-            oct[size++] = ESC;
-            oct[size++] = ESC_E;
-            return size;
-        }
-        
-        else if(buffer[i] == F) {
-            oct[size++] = ESC;
-            oct[size++] = ESC_F;
-            return size;
-        }
-
-        oct[size++] = buffer[i];
-        i++;
-    }while(i < bufSize);
-
-    return size;
-}
-
-int header_frame(unsigned char* buf, const unsigned char* data,unsigned int data_size, unsigned char address, unsigned char control_value){
-
-    buf[0] = F;
-    buf[1] = address;
-    buf[2] = control_value;
-    buf[3] = address ^ control_value;
-
-    int new_size = 0, i = 0;
-    unsigned char bcc = 0;
-
-    do{
-        new_size += stuffing(data + i, 1, buf + new_size + HEADER_SIZE, &bcc);
-        i++;
-    }while(i < data_size);
-
-    new_size += stuffing(&bcc,1, buf + new_size + HEADER_SIZE, NULL);
-    buf[new_size + HEADER_SIZE] = F;
-    
-    new_size += 5;
-    
-    return new_size;
-}
-
-int write_cycle(int size) {
-    int i = 0, wr;
-    while(i < size) {
-        if((wr = write(fd, giant_buf + i, size - i)) == -1) {
-            perror("Couldn't write (llwrite).\n");
-            exit(-1);
-        }
-        i += wr;    
-    }
-    return i;
-}
-
-int tlv(unsigned char *address, int* type, int* length, int** value){
-    
-    *type = address[0];
-    *length = address[1];
-    *value = (int*)(address + 2);
-
-    return 2 + *length;
-}
-

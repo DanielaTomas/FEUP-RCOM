@@ -1,5 +1,3 @@
-// Utils header.
-
 #ifndef _UTILS_H_
 #define _UTILS_H_
 
@@ -33,16 +31,16 @@ int llopenR(int fd);
 
 int llopenT(int fd, int nRetransmissions, int timeout);
 
-void create_command_frame(unsigned char* buf, unsigned char control_value, unsigned char address);
-
-int control_handler(ControlV cv, int R_S);
-
-int write_cycle(int size);
-
 int stuffing(const unsigned char *buf, int bufSize, unsigned char* dest, unsigned char *bcc);
+
+void create_command_frame(unsigned char* buf, unsigned char control_value, unsigned char address);
 
 int header_frame(unsigned char* framebuf, const unsigned char* data, unsigned int data_size, unsigned char address, unsigned char control_value);
 
 int tlv(unsigned char *address, int* type, int* length, int** value);
 
-#endif // _UTILS_H_
+int write_cycle(int size);
+
+int control_handler(ControlV cv, int R_S);
+
+#endif // _UTILS_H

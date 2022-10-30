@@ -1,3 +1,5 @@
+// Link layer protocol implementation
+
 #include <termios.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -10,18 +12,24 @@
 #include "alarm.h"
 #include "utils.h"
 
-#define _POSIX_SOURCE 1 
+// MISC
+#define _POSIX_SOURCE 1 // POSIX compliant source
 
 struct termios oldtio;
 struct termios newtio;
 
-unsigned char sflag, buffer[128], *giant_buf = NULL;
-unsigned long giant_buf_size = 0;
+unsigned char buffer[MAX_PCK_SIZE], *giant_buf = NULL;
+int giant_buf_size = 0;
+unsigned char sflag = FALSE;
 
 int fd;
 int disc = FALSE;
 LinkLayer cp;
 
+
+////////////////////////////////////////////////
+// LLOPEN
+////////////////////////////////////////////////
 int llopen(LinkLayer connectionParameters) {
 
     cp = connectionParameters;
@@ -126,7 +134,7 @@ int llwrite(const unsigned char *buf, int bufSize) {
         }
         
         int j = 0;
-        do{
+        do{ 
             state_machine(buffer[j]);
             if(fstate == END){
                 if(address == A_T && (control_value == control_handler(CVRR, FALSE) || control_value == control_handler(CVRR, TRUE))){

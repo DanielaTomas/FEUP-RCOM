@@ -20,7 +20,7 @@ typedef struct
 } LinkLayer;
 
 extern unsigned char buffer[128], *giant_buf;
-extern unsigned long giant_buf_size;
+extern int giant_buf_size;
 
 typedef enum {CVRR, CVREJ, CVDATA} ControlV;
 extern ControlV cv;
