@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
-unsigned char packet[PCK_SIZE];
+unsigned char packet[PCK_SIZE+30];
 
 void applicationLayer(const char *serialPort, const char *role, int baudRate, int nTries, int timeout, const char *filename) {
 
