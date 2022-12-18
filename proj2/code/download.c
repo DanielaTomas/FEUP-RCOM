@@ -88,21 +88,24 @@ int main(int argc, char **argv) {
     buf[bytesRead] = '\0';
     printf("%s\n",buf);
 
-    char buf2[519];
-    sprintf(buf2,"user %s\r\n",user);
-    size_t bytes = write(sockfd, buf2, strlen(buf2));
-
-    if (bytes > 0) {
-        printf("Written %ld bytes\n", bytes);
-    }
-    else {
-        perror("write\n");
+    if(strncmp(buf,"220",3) != 0) {
+        perror("220\n");
         exit(-1);
     }
 
+
+    char buf2[519];
+    sprintf(buf2,"user %s\r\n",user);
+    size_t bytes = write(sockfd, buf2, strlen(buf2));
     bytesRead = read(sockfd,buf,MAX_SIZE);
     buf[bytesRead] = '\0';
     printf("%s\n",buf);
+
+    if(strncmp(buf,"331 Please specify the password.",32) != 0) {
+        perror("331 Please specify the password.\n");
+        exit(-1);
+    }
+    
 
     sprintf(buf2,"pass %s\r\n",password);
     write(sockfd,buf2,strlen(buf2));
@@ -110,15 +113,27 @@ int main(int argc, char **argv) {
     buf[bytesRead] = '\0';
     printf("%s",buf);
 
+    if(strncmp(buf,"230",3) != 0) {
+        perror("230\n");
+        exit(-1);
+    }
+
+
     strcpy(buf2,"pasv\r\n");
     write(sockfd,buf2,strlen(buf2));
     bytesRead = read(sockfd,buf,MAX_SIZE);
     buf[bytesRead] = '\0';
     printf("%s",buf);
-    
+
+    if(strncmp(buf,"227",3) != 0) {
+        perror("227\n");
+        exit(-1);
+    }
+
     int h1 = 0, h2 = 0, h3 = 0, h4 = 0, p1 = 0, p2 = 0, pasvport;
     sscanf(buf,"227 Entering Passive Mode (%i,%i,%i,%i,%i,%i).",&h1,&h2,&h3,&h4,&p1,&p2);
     pasvport = p1*256+p2;
+
 
     //server address handling
     struct sockaddr_in server_addrC;
@@ -171,7 +186,29 @@ int main(int argc, char **argv) {
     }
 
     fclose(fd);
-    printf("Transfer complete\n");
+
+    do {
+        memset(buf, 0, MAX_SIZE);
+        read(sockfd,buf,MAX_SIZE);
+    } while (buf[0] < '1' || buf[0] > '5' || buf[3] != ' ');
+    printf("%s", buf);
+    buf[3] = '\0';
+
+    if(strncmp(buf,"226",3) != 0) {
+        perror("226\n");
+        exit(-1);
+    }
+
+    sprintf(buf2,"QUIT\r\n");
+    write(sockfd,buf2,strlen(buf2));
+    bytesRead = read(sockfd,buf,MAX_SIZE);
+    buf[bytesRead] = '\0';
+    printf("%s",buf);
+
+    if(strncmp(buf,"221",3) != 0) {
+        perror("221\n");
+        exit(-1);
+    }
 
     if (close(sockfd) < 0) {
         perror("close sockfd\n");
@@ -182,8 +219,6 @@ int main(int argc, char **argv) {
         perror("close sockfdC\n");
         exit(-1);
     }
-
-    printf("Goodbye\n");
 
     return 0;
 }

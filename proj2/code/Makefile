@@ -11,10 +11,10 @@ clean:
 
 
 #///////////////////////////////////////////////////////////
-.PHONY: test
-test:
-	./download ftp://ftp.up.pt/pub/kodi/timestamp.txt
+.PHONY: pic1
+pic1:
+	./download ftp://rcom:rcom@netlab1.fe.up.pt/files/pic1.jpg
 
-.PHONY: download
-download:
+.PHONY: pipe
+pipe:
 	./download ftp://rcom:rcom@netlab1.fe.up.pt/pipe.txt
