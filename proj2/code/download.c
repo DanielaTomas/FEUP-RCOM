@@ -145,7 +145,7 @@ int main(int argc, char **argv) {
 
     int sockfdC;
     if ((sockfdC = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("socketfd2\n");
+        perror("socketfdC\n");
         exit(-1);
     }
 
@@ -168,6 +168,12 @@ int main(int argc, char **argv) {
 
     bytesRead = read(sockfd,buf,MAX_SIZE);
     buf[bytesRead] ='\0';
+    printf("%s\n", buf);
+
+    if(strncmp(buf,"150",3) != 0) {
+        perror("150\n");
+        exit(-1);
+    }
 
     char* filename = strrchr(urlPath, '/');
 
